@@ -1,0 +1,18 @@
+# FREE PREVIEW ONLY. Drafts/approvals/renders are ephemeral and can disappear.
+services:
+  - type: web
+    name: matrix360-socialmanager-preview
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: MATRIX360_CLOUD_MODE
+        value: "1"
+      - key: MATRIX360_FREE_PREVIEW
+        value: "1"
+      - key: MATRIX360_API_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MATRIX_MODEL
+        value: gpt-4.1-mini

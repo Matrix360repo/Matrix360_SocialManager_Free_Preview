@@ -1,0 +1,86 @@
+{
+  "client_id": "lakhotia_industrial_complex",
+  "client_name": "Lakhotia Industrial Complex",
+  "parent_brand": "Lakhotia Group",
+  "contacts": {
+    "phone": "+91 74500 08999",
+    "website": "https://www.lakhotiaindustrialcomplex.com/",
+    "email": "info@lakhotiaindustrialcomplex.com"
+  },
+  "positioning": "Industrial land development and consultative business planning for manufacturing, warehousing and logistics enterprises.",
+  "location": "Ranihati–Amta Road, Howrah, West Bengal",
+  "audiences": [
+    "manufacturers",
+    "warehousing companies",
+    "3PL and logistics operators",
+    "business owners planning expansion"
+  ],
+  "voice": [
+    "professional",
+    "consultative",
+    "business-first",
+    "credible",
+    "future-oriented"
+  ],
+  "palette_suggested": {
+    "deep_green": "#053B35",
+    "navy": "#102A48",
+    "orange": "#E9561A",
+    "off_white": "#FAF8F5"
+  },
+  "approved_claims": [
+    "Located on Ranihati–Amta Road, Howrah",
+    "Approximately 4 km from NH-16",
+    "Planned for manufacturing, warehousing and logistics",
+    "Free consultation by an expert panel is offered",
+    "Lakhotia Group works with industrial land requirements across West Bengal and Odisha",
+    "1,000 bighas under development",
+    "2,500+ bighas planned expansion"
+  ],
+  "claims_pending_approval": [
+    {
+      "key": "amenities",
+      "variants": [
+        "fuel/CNG",
+        "EV charging",
+        "hotel/restaurant",
+        "weighbridge",
+        "residential quarters"
+      ],
+      "reason": "Marketing assets describe planned features; confirm built/planned status before public use."
+    }
+  ],
+  "prohibited_claim_behaviors": [
+    "Never use 800 bighas in newly generated material",
+    "Do not depict planned amenities as operational",
+    "Do not invent discounts, timelines or certifications"
+  ],
+  "visual_rules": [
+    "Preserve actual logos from supplied masters",
+    "Preserve exact phone and website",
+    "Use orange sparingly as headline accent",
+    "Separate festival posts from industrial opportunity posts"
+  ],
+  "reference_links": [
+    "https://www.instagram.com/lakhotiaindustrialcomplex/",
+    "https://www.linkedin.com/company/lakhotia-industrial-complex/",
+    "https://drive.google.com/drive/folders/1D4zlnXnqC49XQS-Y9HHLcBkkCI8aUJ7T"
+  ],
+  "status": "AREA_CLAIM_APPROVED_OTHER_FACTS_REVIEW_REQUIRED",
+  "approved_facts": {
+    "current_development_bighas": 1000,
+    "planned_expansion_bighas": "2500+",
+    "approval_source": "Client confirmation, 15 October 2026"
+  },
+  "brand_assets": {
+    "primary_logo": "assets/lakhotia_group_logo_official.png",
+    "primary_logo_status": "user_supplied_official",
+    "industrial_complex_lockup_status": "not_provided",
+    "logo_integrity_policy": "Place exact supplied logo as a raster overlay; never recreate, recolor, distort, or separate its parts."
+  },
+  "design_templates": [
+    "industrial_opportunity",
+    "consultation",
+    "business_growth"
+  ]
+}
