@@ -15,8 +15,11 @@ Clone `Matrix360repo/SocialManager`, copy **all contents of this folder** into t
   - `MATRIX360_CLOUD_MODE=1`
   - `MATRIX360_FREE_PREVIEW=1`
   - `MATRIX360_API_KEY=<random 32+ character secret>` (Render Generate button; save securely)
-  - `OPENAI_API_KEY=<your private OpenAI key>`
+  - `OPENAI_API_KEY=<your private OpenAI key>` (optional if using Groq)
   - `MATRIX_MODEL=gpt-4.1-mini`
+  - `GROQ_API_KEY=<your private Groq key>` (optional if using OpenAI)
+  - `GROQ_MODEL=llama-3.3-70b-versatile`
+  - `MATRIX_AI_PROVIDER=groq` (optional: force 'groq' or 'openai' when both keys are present)
 - Do **not** configure `MATRIX360_DATA_ROOT` or a persistent disk in Free preview mode.
 - Test `https://YOUR-SERVICE.onrender.com/health` (public health endpoint).
 - Main dashboard requires HTTP Basic authentication; **any username**, password is `MATRIX360_API_KEY`. For n8n requests, set header `X-Matrix360-Key` to that same secret.
@@ -24,8 +27,8 @@ Clone `Matrix360repo/SocialManager`, copy **all contents of this folder** into t
 ## Critical limitations
 
 - Free instances can sleep, restart or redeploy; any SQLite drafts, revisions, approval events and PNGs saved on the instance can **disappear without warning**. Do not use for real client approvals or production records.
-- OpenAI API charges are separate from Render hosting.
+- OpenAI/Groq API charges or rate limits are separate from Render hosting.
 - The bundled brand profile and official logo are needed for successful startup/rendering.
-- Model calls are not verified against your actual OpenAI account; test them after deployment.
+- Model calls are not verified against your actual OpenAI/Groq account at boot; test them after deployment.
 - Do not publish, schedule, or advertise automatically. Human approval is required.
 - For durable deployment, upgrade to persistent disk or migrate assets/records to managed database/object storage and remove Free Preview mode.

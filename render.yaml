@@ -16,3 +16,9 @@ services:
         sync: false
       - key: MATRIX_MODEL
         value: gpt-4.1-mini
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: MATRIX_AI_PROVIDER
+        sync: false

@@ -8,37 +8,106 @@ FONT='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 BOLD='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 BRAND='#073d34'; ORANGE='#ed5c24'; NAVY='#122a48'
 
+def get_ai_config():
+    """Detect whether Groq or OpenAI is configured, returning a configuration dict or None."""
+    openai_key = os.getenv('OPENAI_API_KEY', '').strip()
+    groq_key = os.getenv('GROQ_API_KEY', '').strip()
+    preferred = os.getenv('MATRIX_AI_PROVIDER', '').strip().lower()
+
+    if preferred == 'groq' and groq_key:
+        provider = 'groq'
+    elif preferred == 'openai' and openai_key:
+        provider = 'openai'
+    elif groq_key and not openai_key:
+        provider = 'groq'
+    elif openai_key and not groq_key:
+        provider = 'openai'
+    elif groq_key and openai_key:
+        provider = 'groq' if preferred == 'groq' else 'openai'
+    else:
+        return None
+
+    if provider == 'groq':
+        endpoint = os.getenv('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions')
+        model = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+        return {
+            'provider': 'groq',
+            'key': groq_key,
+            'endpoint': endpoint,
+            'model': model,
+            'generator_name': 'groq_api'
+        }
+    else:
+        endpoint = os.getenv('MATRIX_OPENAI_ENDPOINT', 'https://api.openai.com/v1/chat/completions')
+        model = os.getenv('MATRIX_MODEL', 'gpt-4.1-mini')
+        return {
+            'provider': 'openai',
+            'key': openai_key,
+            'endpoint': endpoint,
+            'model': model,
+            'generator_name': 'openai_api'
+        }
+
 def create(profile, topic, objective, platform, fallback):
     """Optional AI; offline deterministic fallback when no API key is configured."""
-    key=os.getenv('OPENAI_API_KEY','').strip()
-    if not key:
-        return fallback(topic,objective,platform), 'offline_template'
-    req_body={
-        'model':os.getenv('MATRIX_MODEL','gpt-4.1-mini'),
-        'temperature':0.5,
-        'response_format':{'type':'json_object'},
-        'messages':[{'role':'system','content':('Act as an industrial B2B marketing copy editor. Return JSON with candidates array of exactly 3 objects. '+
-          'Each object needs option (integer 1-3), pillar, headline (max 52 chars), subheadline (max 85 chars), '+
-          'caption (max 800 chars), cta, creative_guidance, objective, platform. Use only approved facts. '+
-          'Never invent project facilities, delivery timelines, ROI, or imply planned amenities are operational. '+
-          'Area size: 1,000 bighas under development; expansion plan 2,500+ bighas. '+
-          'Keep readable, non-generic content. Every caption includes +91 74500 08999 and www.lakhotiaindustrialcomplex.com. '+
-          'Do not include 800 bighas.')},
-          {'role':'user','content':json.dumps({'topic':topic,'objective':objective,'platform':platform,'approved_claims':profile['approved_claims'],'voice':profile['voice'],'audiences':profile['audiences']})}]}
-    endpoint=os.getenv('MATRIX_OPENAI_ENDPOINT','https://api.openai.com/v1/chat/completions')
-    request=urllib.request.Request(endpoint, data=json.dumps(req_body).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
+    cfg = get_ai_config()
+    if not cfg:
+        return fallback(topic, objective, platform), 'offline_template'
+    provider = cfg['provider']
+    key = cfg['key']
+    endpoint = cfg['endpoint']
+    model = cfg['model']
+    generator_name = cfg['generator_name']
+
+    req_body = {
+        'model': model,
+        'temperature': 0.5,
+        'response_format': {'type': 'json_object'},
+        'messages': [
+            {'role': 'system', 'content': (
+                'Act as an industrial B2B marketing copy editor. Return JSON with candidates array of exactly 3 objects. '
+                'Each object needs option (integer 1-3), pillar, headline (max 52 chars), subheadline (max 85 chars), '
+                'caption (max 800 chars), cta, creative_guidance, objective, platform. Use only approved facts. '
+                'Never invent project facilities, delivery timelines, ROI, or imply planned amenities are operational. '
+                'Area size: 1,000 bighas under development; expansion plan 2,500+ bighas. '
+                'Keep readable, non-generic content. Every caption includes +91 74500 08999 and www.lakhotiaindustrialcomplex.com. '
+                'Do not include 800 bighas.'
+            )},
+            {'role': 'user', 'content': json.dumps({
+                'topic': topic,
+                'objective': objective,
+                'platform': platform,
+                'approved_claims': profile['approved_claims'],
+                'voice': profile['voice'],
+                'audiences': profile['audiences']
+            })}
+        ]
+    }
+    headers = {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Matrix360-SocialManager/1.0'
+    }
+    request = urllib.request.Request(endpoint, data=json.dumps(req_body).encode('utf-8'), headers=headers, method='POST')
     try:
-        with urllib.request.urlopen(request,timeout=25) as response: raw=json.loads(response.read())
-        items=json.loads(raw['choices'][0]['message']['content'])['candidates']
-        if not isinstance(items,list) or len(items)!=3: raise ValueError('Expected three candidates')
-        required={'option','pillar','headline','subheadline','caption','cta','creative_guidance'}
-        if any(not isinstance(c,dict) or not required.issubset(c) for c in items):raise ValueError('Missing candidate fields')
-        for i,c in enumerate(items,1):
-            if not all(isinstance(c[k],str) and c[k].strip() for k in ('headline','caption','cta','pillar')):raise ValueError('Empty or invalid content field')
-            c['option']=i;c['platform']=platform;c['objective']=objective;c['generator']='openai_api'
-        return items,'openai_api'
+        with urllib.request.urlopen(request, timeout=25) as response:
+            raw = json.loads(response.read().decode('utf-8'))
+        items = json.loads(raw['choices'][0]['message']['content'])['candidates']
+        if not isinstance(items, list) or len(items) != 3:
+            raise ValueError('Expected three candidates')
+        required = {'option', 'pillar', 'headline', 'subheadline', 'caption', 'cta', 'creative_guidance'}
+        if any(not isinstance(c, dict) or not required.issubset(c) for c in items):
+            raise ValueError('Missing candidate fields')
+        for i, c in enumerate(items, 1):
+            if not all(isinstance(c[k], str) and c[k].strip() for k in ('headline', 'caption', 'cta', 'pillar')):
+                raise ValueError('Empty or invalid content field')
+            c['option'] = i
+            c['platform'] = platform
+            c['objective'] = objective
+            c['generator'] = generator_name
+        return items, generator_name
     except Exception as exc:
-        raise RuntimeError('Model generation failed; no silently substituted AI output: '+str(exc)) from exc
+        raise RuntimeError(f'{provider.upper()} model generation failed; no silently substituted AI output: ' + str(exc)) from exc
 
 def verify(items):
     issues=[]

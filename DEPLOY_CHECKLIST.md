@@ -6,5 +6,5 @@
 4. Deploy Free Docker service; check `/health` reports `status: ok`.
 5. Open `/` using HTTP Basic (username arbitrary, password equals MATRIX360_API_KEY).
 6. Generate one draft; review 3 PNG previews; request revision; approve a version; export ZIP.
-7. Confirm actual OpenAI provider (not `offline_template`) if testing AI.
+7. Confirm actual AI provider (OpenAI or Groq, not `offline_template`) if testing AI.
 8. EXPECT HISTORY LOSS after a free instance restarts or redeploys.
