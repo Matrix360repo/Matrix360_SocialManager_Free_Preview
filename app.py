@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from html import escape
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse, Response
-from engine import create as content_create, verify as content_verify, render_card, get_ai_config
+from engine import create as content_create, verify as content_verify, render_card, get_ai_config, clean_key
 
 BASE=Path(__file__).parent
 PROFILE=json.loads((BASE/'data/brand_profile.json').read_text(encoding='utf-8'))
@@ -86,11 +86,12 @@ def drafts():
         rows=c.execute('SELECT id, created_at, topic, objective, platform, status, checks FROM drafts ORDER BY created_at DESC').fetchall()
     return [dict(r) for r in rows]
 @app.post('/api/generate')
-def generate(topic:str=Form(...),objective:str=Form('Awareness'),platform:str=Form('Instagram')):
+def generate(topic:str=Form(...),objective:str=Form('Awareness'),platform:str=Form('Instagram'),provider:str=Form('auto')):
     if not topic.strip() or len(topic)>250: raise HTTPException(422,'Topic must be 1–250 characters')
     if platform not in ('Instagram','LinkedIn'):raise HTTPException(422,'Unsupported platform')
+    if provider not in ('auto','groq','openai','offline'):raise HTTPException(422,'Unsupported provider')
     try:
-        content, provider=content_create(PROFILE,topic,objective,platform,draft_three)
+        content, used_provider=content_create(PROFILE,topic,objective,platform,draft_three,requested_provider=provider)
     except RuntimeError as e:raise HTTPException(502,str(e))
     checks=content_verify(content)
     if len(content)!=3 or len(checks)!=3:
@@ -113,7 +114,7 @@ def generate(topic:str=Form(...),objective:str=Form('Awareness'),platform:str=Fo
     except Exception:
         for path in paths:path.unlink(missing_ok=True)
         raise
-    return {'id':draft_id,'status':'review','provider':provider,'candidates':content,'compliance':checks,'preview_urls':[f'/api/drafts/{draft_id}/preview/{i}' for i in (1,2,3)]}
+    return {'id':draft_id,'status':'review','provider':used_provider,'candidates':content,'compliance':checks,'preview_urls':[f'/api/drafts/{draft_id}/preview/{i}' for i in (1,2,3)]}
 @app.get('/api/drafts/{draft_id}')
 def get_draft(draft_id:str):
     with conn() as c:r=c.execute('SELECT * FROM drafts WHERE id=?',(draft_id,)).fetchone()
@@ -160,16 +161,20 @@ def dashboard():
         recent=c.execute('SELECT id,topic,status,created_at FROM drafts ORDER BY created_at DESC LIMIT 12').fetchall()
     rows=''.join(f'<tr><td>{escape(r["topic"])}</td><td>{escape(r["status"])}</td><td><a href="/draft/{r["id"]}">Review</a></td></tr>' for r in recent)
     cfg = get_ai_config()
-    openai_set = bool(os.getenv('OPENAI_API_KEY','').strip())
-    groq_set = bool(os.getenv('GROQ_API_KEY','').strip())
+    openai_key = clean_key(os.getenv('OPENAI_API_KEY',''))
+    groq_key = clean_key(os.getenv('GROQ_API_KEY',''))
+    openai_set = bool(openai_key)
+    groq_set = bool(groq_key)
     openai_badge = 'Configured (Active)' if cfg and cfg['provider'] == 'openai' else ('Configured' if openai_set else 'Not configured')
     groq_badge = 'Configured (Active)' if cfg and cfg['provider'] == 'groq' else ('Configured' if groq_set else 'Not configured')
     active_engine_desc = f"{cfg['provider'].upper()} ({cfg['model']})" if cfg else 'Offline deterministic template (no API key configured)'
+    groq_opt = '<option value="groq">Groq (Ultra-fast / Llama 3.3)</option>' if groq_set else ''
+    openai_opt = '<option value="openai">OpenAI (GPT-4.1-mini)</option>' if openai_set else ''
     return f'''<!doctype html><html><head><meta charset="utf-8"><title>Matrix 360 | Lakhotia</title><style>
     body{{font:15px system-ui;background:#f1f4f5;color:#14342f;margin:0}}main{{max-width:980px;margin:38px auto;padding:0 24px}}header{{background:#073d34;color:white;padding:25px}}h1{{margin:0}}.card{{background:white;border-radius:12px;padding:23px;margin:16px 0;box-shadow:0 2px 10px #0001}}label{{display:block;margin:12px 0}}input,select{{padding:10px;border:1px solid #b8c9c5;border-radius:6px;min-width:280px}}button{{background:#e9561a;color:white;border:0;padding:12px 20px;border-radius:6px;cursor:pointer}}table{{width:100%;border-collapse:collapse}}td,th{{text-align:left;padding:10px;border-bottom:1px solid #ddd}}small{{color:#64756e}}.stat{{display:inline-block;margin-right:25px;font-weight:700}}code{{background:#eef2f1;padding:2px 6px;border-radius:4px;font-size:13px}}
     </style></head><body><header><h1>Matrix 360 | Lakhotia Marketing OS</h1><div>Client 001 · Draft → Check → Human Approval → Export</div></header><main><div class="card"><h2>Operator dashboard</h2><div class="stat">Under review: {counts.get('review',0)}</div><div class="stat">Approved: {counts.get('approved',0)}</div><div class="stat">Rejected: {counts.get('rejected',0)}</div><p><small>Active AI Engine: <b>{escape(active_engine_desc)}</b>. No live publishing or ad spend.</small></p></div>
     <div class="card"><h2>AI API Keys & Engines</h2><p><small>Render-compliant environment configuration for model-backed concept generation and creative revisions.</small></p><table><tr><th>Provider</th><th>API Key Status</th><th>Target Model</th><th>Environment Variable</th></tr><tr><td>OpenAI</td><td><b>{escape(openai_badge)}</b></td><td>{escape(os.getenv('MATRIX_MODEL','gpt-4.1-mini'))}</td><td><code>OPENAI_API_KEY</code></td></tr><tr><td>Groq</td><td><b>{escape(groq_badge)}</b></td><td>{escape(os.getenv('GROQ_MODEL','llama-3.3-70b-versatile'))}</td><td><code>GROQ_API_KEY</code></td></tr></table><p><small>Set <code>OPENAI_API_KEY</code> or <code>GROQ_API_KEY</code> in Render Environment Variables or local <code>.env</code>. Set <code>MATRIX_AI_PROVIDER=groq</code> or <code>openai</code> to select preference when both keys are present.</small></p></div>
-    <div class="card"><h2>Create campaign draft</h2><form action="/api/generate" method="post"><label>Topic<br><input name="topic" required maxlength="250" placeholder="Planning a warehouse expansion"></label><label>Objective<br><select name="objective"><option>Awareness</option><option>Consultation enquiries</option><option>Thought leadership</option></select></label><label>Channel<br><select name="platform"><option>Instagram</option><option>LinkedIn</option></select></label><button type="submit">Generate 3 structured concepts</button></form></div>
+    <div class="card"><h2>Create campaign draft</h2><form action="/api/generate" method="post"><label>Topic<br><input name="topic" required maxlength="250" placeholder="Planning a warehouse expansion"></label><label>Objective<br><select name="objective"><option>Awareness</option><option>Consultation enquiries</option><option>Thought leadership</option></select></label><label>Channel<br><select name="platform"><option>Instagram</option><option>LinkedIn</option></select></label><label>AI Engine / Provider<br><select name="provider"><option value="auto">Auto-detect ({escape(active_engine_desc)})</option>{groq_opt}{openai_opt}<option value="offline">Offline Template (Deterministic demo / No API key needed)</option></select></label><button type="submit">Generate 3 structured concepts</button></form></div>
     <div class="card"><h2>Review queue</h2><table><tr><th>Topic</th><th>Status</th><th>Action</th></tr>{rows}</table></div><p><small>Approved current development: 1,000 bighas. Group logo integrated; editable layout masters and Industrial Complex lockup still required for production-quality rendering. Generated PNGs are design proofs.</small></p></main></body></html>'''
 @app.get('/draft/{draft_id}',response_class=HTMLResponse)
 def review_page(draft_id:str):

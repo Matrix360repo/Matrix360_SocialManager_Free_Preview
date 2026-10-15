@@ -67,6 +67,19 @@ def ai_propose(source, feedback):
         with urllib.request.urlopen(req, timeout=50) as res:
             result=json.loads(res.read().decode('utf-8'))
         proposal=json.loads(result['choices'][0]['message']['content'])
+    except urllib.error.HTTPError as exc:
+        err_msg = ""
+        try:
+            err_data = json.loads(exc.read().decode('utf-8', errors='replace'))
+            err_msg = err_data.get('error', {}).get('message', '')
+        except Exception:
+            pass
+        detail = f"{provider.upper()} API returned HTTP {exc.code} ({exc.reason})"
+        if err_msg:
+            detail += f": {err_msg}"
+        if exc.code == 401:
+            detail += f". Please verify {provider.upper()}_API_KEY in Render environment variables."
+        raise HTTPException(502, detail) from exc
     except (urllib.error.URLError, KeyError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(502,f'{provider.upper()} generation failed; no revision was saved: '+str(exc)[:260]) from exc
     if not isinstance(proposal,dict):
