@@ -108,9 +108,7 @@ class ReferenceRecoveryTests(unittest.TestCase):
             'MATRIX_REFERENCE_SUPABASE_SERVICE_KEY':'sb_secret_test',
         }),patch.object(storage,'settings',return_value=('https://test.supabase.co','private','token')),patch.object(
             grid,'restore_gate_record',return_value=True
-        ) as restore,patch.object(grid,'dbconn') as connection,patch.object(
-            cloud_start,'print',create=True
-        ) as ignored:
+        ) as restore,patch.object(grid,'dbconn') as connection:
             # Simulate the registry being absent after reset: startup must
             # attempt recovery, not passively wait for Director navigation.
             connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value=None
