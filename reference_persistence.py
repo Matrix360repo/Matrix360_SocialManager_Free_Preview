@@ -23,6 +23,8 @@ def settings():
     key=os.getenv('MATRIX_REFERENCE_SUPABASE_SERVICE_KEY','').strip()
     if not any((url,bucket,key)):
         return None
+    if key.startswith('sb_publishable_'):
+        raise StorageError('Storage key is publishable; a server-side Supabase secret key is required')
     parsed=urlparse(url)
     if (not all((url,bucket,key)) or parsed.scheme!='https' or not parsed.netloc
         or parsed.username or parsed.password or parsed.query or parsed.fragment
