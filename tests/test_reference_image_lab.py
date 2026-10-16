@@ -6,6 +6,19 @@ from security_roles import activate_actor, clear_actor
 from reference_image_lab import generate_reference_image, approved_reference, view_proof
 
 class ReferenceImageLabTests(unittest.TestCase):
+    def test_director_cannot_bypass_site_layout_lock(self):
+        token=activate_actor('Director')
+        try:
+            with patch('reference_image_lab.approved_reference') as ref:
+                with self.assertRaises(HTTPException) as ex:
+                    generate_reference_image('00000000-0000-0000-0000-000000000001',
+                        'Make the entrance prettier with extra greenery',consent='one_paid_image')
+                self.assertEqual(ex.exception.status_code,409)
+                self.assertIn('suspended',str(ex.exception.detail))
+                ref.assert_not_called()
+        finally:
+            clear_actor(token)
+
     def test_operator_cannot_generate_paid_image(self):
         token=activate_actor('operator')
         try:
@@ -20,7 +33,7 @@ class ReferenceImageLabTests(unittest.TestCase):
         try:
             with self.assertRaises(HTTPException) as ex:
                 generate_reference_image('any', 'An industrial development creative')
-            self.assertEqual(ex.exception.status_code,422)
+            self.assertEqual(ex.exception.status_code,409)
         finally:
             clear_actor(token)
 
@@ -30,7 +43,7 @@ class ReferenceImageLabTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ex:
                 generate_reference_image('any','An industrial development creative',
                                          quality='high',consent='one_paid_image')
-            self.assertEqual(ex.exception.status_code,422)
+            self.assertEqual(ex.exception.status_code,409)
         finally:
             clear_actor(token)
 
@@ -53,7 +66,7 @@ class ReferenceImageLabTests(unittest.TestCase):
                         generate_reference_image('00000000-0000-0000-0000-000000000001',
                            'An architectural conceptual view of industrial development',
                            consent='one_paid_image')
-                    self.assertEqual(ex.exception.status_code,503)
-                    ref.assert_called_once()
+                    self.assertEqual(ex.exception.status_code,409)
+                    ref.assert_not_called()
         finally:
             clear_actor(token)

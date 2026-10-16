@@ -52,6 +52,18 @@ def generate_reference_image(asset_id: str, subject: str, quality: str = 'low',
                              consent: str = '') -> dict:
     # Cost-bearing action: no automatic execution, operator invocation or scheduled batch.
     director_required()
+    # ARCHITECTURE SAFETY STOP (2026-10-16):
+    # Lakhotia_Gate_Master_Lock.md defines one immutable gate master. An image
+    # edit model cannot guarantee that geometry, landscaping or site layout
+    # will be preserved. Block the call BEFORE the paid provider request.
+    # Re-enable only after an approved reference grid, region-lock masks and
+    # evidence-based post-generation checks are implemented and reviewed.
+    raise HTTPException(
+        409,
+        'Architectural image generation is suspended: the approved gate and '
+        'site plan must be preserved exactly. Use unchanged approved artwork '
+        'for compositions until reference-grid verification is available.'
+    )
     if consent != 'one_paid_image':
         raise HTTPException(422, 'Director must explicitly authorize this paid image request')
     if quality not in ('low', 'medium'):
