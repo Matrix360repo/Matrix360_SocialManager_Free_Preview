@@ -82,6 +82,29 @@ class AssetStudioTests(unittest.TestCase):
                 with self.assertRaises(HTTPException) as e:
                     candidate_brand_proof(asset_id,draft_id,1)
                 self.assertEqual(e.exception.status_code,409)
+    def test_old_draft_missing_after_ephemeral_restart_returns_404(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp=Path(tmp)
+            asset_id='00000000-0000-0000-0000-000000000001'
+            draft_id='00000000-0000-0000-0000-000000000002'
+            data_path=tmp/'only_assets.sqlite3'
+            with sqlite3.connect(data_path) as db:
+                db.execute('CREATE TABLE brand_assets(id TEXT,status TEXT)')
+                db.execute('INSERT INTO brand_assets VALUES (?,?)',(asset_id,'approved_proof'))
+                db.commit()
+            with patch.object(studio,'DB',data_path):
+                with self.assertRaises(HTTPException) as err:
+                    candidate_brand_proof(asset_id,draft_id,1)
+                self.assertEqual(err.exception.status_code,404)
+                self.assertIn('generate a new',str(err.exception.detail).lower())
+            with sqlite3.connect(data_path) as db:
+                db.execute('CREATE TABLE drafts(id TEXT,payload TEXT,checks TEXT,status TEXT)')
+                db.commit()
+            with patch.object(studio,'DB',data_path):
+                with self.assertRaises(HTTPException) as err:
+                    candidate_brand_proof(asset_id,draft_id,1)
+                self.assertEqual(err.exception.status_code,404)
+                self.assertIn('draft not found',str(err.exception.detail).lower())
     def test_invalid_campaign_preview_inputs_fail(self):
         with self.assertRaises(HTTPException) as e:
             candidate_brand_proof('bad','also-bad',1)
