@@ -66,7 +66,7 @@ class DirectorDemoTests(unittest.TestCase):
             with patch.object(demo,'verified_master',return_value=b'gate bytes'):
                 page=demo.director_demo().body.decode()
             self.assertEqual(page.count('class="art art-'),3)
-            self.assertEqual(page.count('src="/api/director-demo/gate"'),3)
+            self.assertEqual(page.split('<script>',1)[0].count('src="/api/director-demo/gate"'),3)
             self.assertIn('production_status',str(demo.director_storyboard()))
             self.assertIn('Publishing is blocked',page)
         finally:clear_actor(tok)
