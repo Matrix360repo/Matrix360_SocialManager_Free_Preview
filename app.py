@@ -204,3 +204,7 @@ app.include_router(brand_asset_router)
 # Director-gated OpenAI reference-guided image generation. No publishing.
 from reference_image_lab import router as image_lab_router
 app.include_router(image_lab_router)
+
+# Immutable architectural reference assets; Director-curated provenance.
+from reference_grid import router as reference_grid_router
+app.include_router(reference_grid_router)
