@@ -19,6 +19,14 @@ class ReferenceGridTests(unittest.TestCase):
             grid.validate_image(example_png(),grid.GATE_NAME,'locked_gate_master')
         self.assertEqual(ctx.exception.status_code,409)
 
+    def test_download_renaming_does_not_change_verified_gate_identity(self):
+        raw=example_png()
+        digest=__import__('hashlib').sha256(raw).hexdigest()
+        with patch.object(grid,'GATE_SHA',digest):
+            for filename in ('Lakhotia_Approved_Gate_From_Final_Print (1).png',
+                             'downloaded-master.png'):
+                self.assertEqual(grid.validate_image(raw,filename,'locked_gate_master'),digest)
+
     def test_other_reference_does_not_become_a_gate_master(self):
         digest=grid.validate_image(example_png(),'shed.png','industrial_unit_reference')
         self.assertEqual(len(digest),64)

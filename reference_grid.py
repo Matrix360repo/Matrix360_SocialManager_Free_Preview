@@ -55,8 +55,8 @@ def validate_image(raw:bytes,filename:str,role:str):
         raise HTTPException(422,'Cannot validate reference image') from exc
     digest=hashlib.sha256(raw).hexdigest()
     if role=='locked_gate_master':
-        if filename!=GATE_NAME or digest!=GATE_SHA:
-            raise HTTPException(409,'Gate master does not match locked source file and SHA-256; cannot substitute')
+        if digest!=GATE_SHA:
+            raise HTTPException(409,'Gate master SHA-256 does not match the sole approved architectural source')
     return digest
 
 @router.post('/api/reference-grid/assets')
@@ -70,6 +70,8 @@ async def upload_reference(asset:UploadFile=File(...),role:str=Form(...),note:st
     raw=await asset.read(MAX_BYTES+1)
     digest=validate_image(raw,filename,role)
     if role=='locked_gate_master':
+        # Browser-renamed downloads retain exact bytes. Use canonical name.
+        filename=GATE_NAME
         source_identity='libfile_919a429faf1081919b91e846f88f6d9d'
     if not source_identity.strip():
         raise HTTPException(422,'Source identity/provenance required')
