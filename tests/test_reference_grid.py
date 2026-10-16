@@ -49,7 +49,7 @@ class ReferenceGridTests(unittest.TestCase):
                             'pending_review','','source',1))
                         db.commit()
                     with self.assertRaises(HTTPException) as ctx:
-                        grid.review_reference('00000000-0000-0000-0000-000000000001','approved_reference')
+                        grid.review_reference('00000000-0000-0000-0000-000000000001','approved_reference','')
                     self.assertEqual(ctx.exception.status_code,409)
         finally:clear_actor(token)
 
