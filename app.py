@@ -200,3 +200,7 @@ app.include_router(campaign_studio_router)
 # Reference-led artwork: staged clean backgrounds, Director proof approval.
 from brand_asset_studio import router as brand_asset_router
 app.include_router(brand_asset_router)
+
+# Director-gated OpenAI reference-guided image generation. No publishing.
+from reference_image_lab import router as image_lab_router
+app.include_router(image_lab_router)
