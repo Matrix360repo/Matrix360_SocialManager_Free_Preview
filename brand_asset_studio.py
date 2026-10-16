@@ -155,6 +155,48 @@ def asset_proof(asset_id:str):
     return Response(result,media_type='image/png',
                     headers={'Cache-Control':'no-store','Content-Disposition':'inline; filename="lakhotia-brand-proof.png"'})
 
+@router.get('/api/brand-studio/assets/{asset_id}/draft/{draft_id}/option/{option}/proof')
+def candidate_brand_proof(asset_id:str,draft_id:str,option:int):
+    """Preview-only composition of reviewed clean plate with an existing draft.
+
+    No mutation of draft PNGs, review statuses, approvals or export packages.
+    This route is not a publication or approval mechanism.
+    """
+    if option not in (1,2,3):
+        raise HTTPException(404,'Unknown candidate option')
+    try: asset_id=str(uuid.UUID(asset_id));draft_id=str(uuid.UUID(draft_id))
+    except ValueError:raise HTTPException(404,'Unknown asset or draft')
+    with dbconn() as db:
+        asset_row=db.execute('SELECT status FROM brand_assets WHERE id=?',(asset_id,)).fetchone()
+        draft_row=db.execute('SELECT payload,checks,status FROM drafts WHERE id=?',(draft_id,)).fetchone()
+    if asset_row is None or draft_row is None:
+        raise HTTPException(404,'Asset or draft not found')
+    if asset_row[0]!='approved_proof':
+        raise HTTPException(403,'Director confirmation required before composing proof')
+    if draft_row[2] not in ('review','revision_requested'):
+        raise HTTPException(409,'Proof is available for drafts awaiting review only')
+    candidates=json.loads(draft_row[0]);checks=json.loads(draft_row[1])
+    if len(candidates)!=3 or len(checks)!=3:
+        raise HTTPException(409,'Draft lacks complete candidate compliance records')
+    candidate=next((c for c in candidates if c.get('option')==option),None)
+    check=next((c for c in checks if c.get('option')==option),None)
+    if not candidate or not check or not check.get('passed'):
+        raise HTTPException(409,'Candidate must pass baseline compliance checks')
+    # Re-evaluate with the current engine to avoid accepting previously
+    # unqualified project claims from stored draft records.
+    from engine import verify
+    latest=verify([candidate])
+    if not latest[0]['passed']:
+        raise HTTPException(409,'Candidate fails current compliance: '+ '; '.join(latest[0]['issues']))
+    source=DIR/f'{asset_id}.png'
+    if not source.is_file():
+        raise HTTPException(410,'Ephemeral source file missing')
+    with Image.open(source) as clean:
+        result=render_composition(clean,candidate['headline'])
+    return Response(result,media_type='image/png',
+        headers={'Cache-Control':'no-store',
+                 'X-Matrix360-Asset-Status':'internal-proof-only'})
+
 @router.get('/brand-studio',response_class=HTMLResponse)
 def brand_studio():
     cards=[]
