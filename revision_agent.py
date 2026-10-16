@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from html import escape
 from fastapi import APIRouter, Form, HTTPException
+from security_roles import director_required
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, RedirectResponse
 from engine import render_card, verify
 from visual_layouts_v12 import render as render_visual_v12, MODES
@@ -108,6 +109,7 @@ def preview(draft_id:str,opt:int,n:int):
 
 @router.post('/api/revisions/{draft_id}/{opt}/{n}/approve')
 def approve(draft_id:str,opt:int,n:int,reviewer:str=Form(...)):
+    reviewer=director_required()
     if len(reviewer.strip())<2:raise HTTPException(422,'Reviewer required')
     with dbconn() as db:
         v=_version(db,draft_id,opt,n)
@@ -121,12 +123,13 @@ def approve(draft_id:str,opt:int,n:int,reviewer:str=Form(...)):
 
 @router.get('/api/revisions/{draft_id}/{opt}/{n}/package')
 def package(draft_id:str,opt:int,n:int):
+    director_required()
     with dbconn() as db:
         v=_version(db,draft_id,opt,n)
         if v['status']!='approved':raise HTTPException(403,'This version is not approved')
         if latest(db,draft_id,opt)['version_no']!=n:raise HTTPException(403,'A newer revision is awaiting review')
         file=_file(v);content=json.loads(v['candidate_json'])
-        manifest={'draft_id':draft_id,'option':opt,'version':n,'approved_by_self_declared_reviewer':v['approved_by'],'content':content,'compliance':json.loads(v['compliance_json']),'no_live_publishing':True}
+        manifest={'draft_id':draft_id,'option':opt,'version':n,'approved_by_authenticated_director':v['approved_by'],'content':content,'compliance':json.loads(v['compliance_json']),'no_live_publishing':True}
         buf=io.BytesIO()
         with zipfile.ZipFile(buf,'w',zipfile.ZIP_DEFLATED) as z:
             z.write(file,'creative.png');z.writestr('caption.txt',content.get('caption',''));z.writestr('campaign.json',json.dumps(manifest,indent=2,ensure_ascii=False))
