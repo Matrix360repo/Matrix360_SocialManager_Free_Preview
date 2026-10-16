@@ -214,3 +214,7 @@ from architectural_compositor import router as architecture_compositor_router
 from reference_gallery_v2 import router as reference_gallery_router
 app.include_router(architecture_compositor_router)
 app.include_router(reference_gallery_router)
+
+# October 16 integrated Director campaign acceptance demonstration.
+from director_demo import router as director_demo_router
+app.include_router(director_demo_router)
