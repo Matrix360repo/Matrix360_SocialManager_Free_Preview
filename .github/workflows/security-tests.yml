@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - stabilization/oct19-security-tests
+      - feature/oct16-campaign-studio-usable-flow
   pull_request:
     paths:
       - 'security_roles.py'
