@@ -22,7 +22,7 @@ class AssetStudioTests(unittest.TestCase):
         with self.assertRaises(HTTPException):
             clean_plate_image(image_bytes('JPEG'), 'image/gif')
         with self.assertRaises(HTTPException):
-            clean_plate_image(image_bytes(), 'image/png') if False else clean_plate_image(b'x'*12582913,'image/png')
+            clean_plate_image(b'x'*12582913,'image/png')
     def test_small_images_rejected(self):
         with self.assertRaises(HTTPException):
             clean_plate_image(image_bytes(size=(800,500)), 'image/png')
