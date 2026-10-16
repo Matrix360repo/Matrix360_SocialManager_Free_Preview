@@ -169,16 +169,28 @@ def candidate_brand_proof(asset_id:str,draft_id:str,option:int):
     except ValueError:raise HTTPException(404,'Unknown asset or draft')
     with dbconn() as db:
         asset_row=db.execute('SELECT status FROM brand_assets WHERE id=?',(asset_id,)).fetchone()
+        # On ephemeral Render Free disks an older draft or its table may be
+        # absent after a fresh deployment. Missing data is a 404, not a 500.
+        has_drafts=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='drafts'").fetchone()
+        if not has_drafts:
+            raise HTTPException(404,'No stored drafts on this deployment; generate a new campaign draft')
         draft_row=db.execute('SELECT payload,checks,status FROM drafts WHERE id=?',(draft_id,)).fetchone()
-    if asset_row is None or draft_row is None:
-        raise HTTPException(404,'Asset or draft not found')
+    if asset_row is None:
+        raise HTTPException(404,'Brand asset not found; re-upload if Render has restarted')
+    if draft_row is None:
+        raise HTTPException(404,'Draft not found on this deployment; generate a new campaign draft')
     if asset_row[0]!='approved_proof':
         raise HTTPException(403,'Director confirmation required before composing proof')
     if draft_row[2] not in ('review','revision_requested'):
         raise HTTPException(409,'Proof is available for drafts awaiting review only')
-    candidates=json.loads(draft_row[0]);checks=json.loads(draft_row[1])
-    if len(candidates)!=3 or len(checks)!=3:
+    try:
+        candidates=json.loads(draft_row[0]);checks=json.loads(draft_row[1])
+    except (TypeError,ValueError) as exc:
+        raise HTTPException(409,'Draft content is unreadable; generate a new draft') from exc
+    if not isinstance(candidates,list) or not isinstance(checks,list) or len(candidates)!=3 or len(checks)!=3:
         raise HTTPException(409,'Draft lacks complete candidate compliance records')
+    if any(not isinstance(c,dict) for c in candidates+checks):
+        raise HTTPException(409,'Draft has invalid candidate records')
     candidate=next((c for c in candidates if c.get('option')==option),None)
     check=next((c for c in checks if c.get('option')==option),None)
     if not candidate or not check or not check.get('passed'):
@@ -193,7 +205,7 @@ def candidate_brand_proof(asset_id:str,draft_id:str,option:int):
     if not source.is_file():
         raise HTTPException(410,'Ephemeral source file missing')
     with Image.open(source) as clean:
-        result=render_composition(clean,candidate['headline'])
+        result=render_composition(clean,candidate.get('headline',''))
     return Response(result,media_type='image/png',
         headers={'Cache-Control':'no-store',
                  'X-Matrix360-Asset-Status':'internal-proof-only'})
