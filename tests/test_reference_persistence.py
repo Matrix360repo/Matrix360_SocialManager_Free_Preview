@@ -102,6 +102,26 @@ class ReferenceRecoveryTests(unittest.TestCase):
                     self.assertEqual(db.execute('SELECT COUNT(*) FROM reference_grid').fetchone()[0],1)
                 self.assertEqual((grid.STORE/(row[0]+'.png')).read_bytes(),self.raw)
 
+    def test_startup_preflight_calls_automatic_recovery(self):
+        import cloud_start
+        with patch.dict('os.environ',{
+            'MATRIX_REFERENCE_SUPABASE_SERVICE_KEY':'sb_secret_test',
+        }),patch.object(storage,'settings',return_value=('https://test.supabase.co','private','token')),patch.object(
+            grid,'restore_gate_record',return_value=True
+        ) as restore,patch.object(grid,'dbconn') as connection,patch.object(
+            cloud_start,'print',create=True
+        ) as ignored:
+            # Simulate the registry being absent after reset: startup must
+            # attempt recovery, not passively wait for Director navigation.
+            connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value=None
+            from contextlib import redirect_stdout
+            import io
+            out=io.StringIO()
+            with redirect_stdout(out):
+                cloud_start.storage_preflight()
+            restore.assert_called_once()
+            self.assertIn('recovery_not_verified',out.getvalue())
+
     def test_no_false_verification_when_remote_offline(self):
         with tempfile.TemporaryDirectory() as tmp:
             base=Path(tmp)
