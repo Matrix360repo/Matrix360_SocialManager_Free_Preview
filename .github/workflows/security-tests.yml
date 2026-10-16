@@ -6,6 +6,7 @@ on:
       - feature/oct16-reference-asset-workflow
       - fix/oct16-brand-draft-proof-500
       - feature/oct16-reference-ai-image-lab
+      - fix/oct16-lock-architectural-reference-generation
   pull_request:
     paths:
       - 'security_roles.py'
