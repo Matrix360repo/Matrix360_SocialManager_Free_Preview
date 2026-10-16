@@ -9,6 +9,7 @@ on:
       - fix/oct16-lock-architectural-reference-generation
       - feature/oct16-reference-grid-v1
       - feature/oct16-reference-grid-v2-gallery-compositor
+      - fix/oct16-architectural-proof-headline-overlap
   pull_request:
     paths:
       - 'security_roles.py'

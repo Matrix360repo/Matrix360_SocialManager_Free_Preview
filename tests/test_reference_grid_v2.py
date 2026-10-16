@@ -21,6 +21,25 @@ def sample():
 class MasterPreservationTests(unittest.TestCase):
     def setUp(self):self.raw=sample()
 
+    def test_default_wrapped_headline_has_clearance_from_master(self):
+        from creative_renderer_v07 import _f
+        from PIL import ImageDraw
+        canvas=Image.new('RGB',(compositor.W,compositor.H))
+        draw=ImageDraw.Draw(canvas)
+        text='Land at the right place for your business'
+        lines=[];part=''
+        for word in text.split():
+            maybe=(part+' '+word).strip()
+            if draw.textbbox((0,0),maybe,font=_f(46,True))[2]>990 and part:
+                lines.append(part);part=word
+            else:
+                part=maybe
+        if part:lines.append(part)
+        bottom=max(draw.textbbox((43,166+i*54),line,font=_f(46,True))[3]
+                   for i,line in enumerate(lines))
+        self.assertGreaterEqual(len(lines),2)
+        self.assertGreaterEqual(compositor.PANEL[1]-bottom,28)
+
     def test_unchanged_original_is_required_for_compositor(self):
         with self.assertRaises(HTTPException) as ex:
             compositor.make_gate_proof(self.raw)
