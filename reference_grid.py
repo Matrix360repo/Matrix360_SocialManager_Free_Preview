@@ -141,6 +141,18 @@ def restore_gate_record():
             db.commit()
     return True
 
+@router.get('/api/reference-grid/storage-status')
+def storage_status():
+    director_required()
+    try:
+        configured=persistence.settings() is not None
+    except persistence.StorageError:
+        configured=False
+    recovered=restore_gate_record() if configured else False
+    return {'durable_storage_configured':configured,'verified_master_available':recovered,
+            'mode':'private_immutable_object_store' if configured else 'ephemeral_preview',
+            'warning':None if configured else 'No durable storage credentials configured; files will disappear after redeploy'}
+
 @router.get('/api/reference-grid/assets')
 def list_references():
     restore_gate_record()
