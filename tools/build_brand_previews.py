@@ -4,9 +4,10 @@ Run: python tools/build_brand_previews.py
 No model/API credentials, contact lists or live publishing required.
 """
 from pathlib import Path
-from brand_renderer_v14 import render_card_v14
-
+import sys
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from brand_renderer_v14 import render_card_v14
 DEST=ROOT/"artifacts"/"brand_previews"
 SAFE_CAPTION=("Lakhotia Industrial Complex, Ranihati–Amta Road, Howrah. "
               "1,000 bighas under development; 2,500+ bighas planned expansion. "
