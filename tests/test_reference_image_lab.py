@@ -16,7 +16,7 @@ class ReferenceImageLabTests(unittest.TestCase):
             clear_actor(token)
 
     def test_director_cannot_generate_without_explicit_consent(self):
-        token=activate_actor('director')
+        token=activate_actor('Director')
         try:
             with self.assertRaises(HTTPException) as ex:
                 generate_reference_image('any', 'An industrial development creative')
@@ -25,7 +25,7 @@ class ReferenceImageLabTests(unittest.TestCase):
             clear_actor(token)
 
     def test_expensive_quality_is_disabled(self):
-        token=activate_actor('director')
+        token=activate_actor('Director')
         try:
             with self.assertRaises(HTTPException) as ex:
                 generate_reference_image('any','An industrial development creative',
@@ -45,7 +45,7 @@ class ReferenceImageLabTests(unittest.TestCase):
         self.assertEqual(ex.exception.status_code,404)
 
     def test_missing_key_does_not_trigger_api(self):
-        token=activate_actor('director')
+        token=activate_actor('Director')
         try:
             with patch('reference_image_lab.approved_reference') as ref:
                 with patch.dict('os.environ',{'OPENAI_API_KEY':''}):
