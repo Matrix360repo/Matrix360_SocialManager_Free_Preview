@@ -3,10 +3,12 @@ on:
   push:
     branches:
       - stabilization/oct19-security-tests
+      - feature/oct16-reference-asset-workflow
   pull_request:
     paths:
       - 'security_roles.py'
       - 'campaign_studio_poc.py'
+      - 'brand_asset_studio.py'
       - 'app.py'
       - 'review_addon.py'
       - 'revision_agent.py'
@@ -22,5 +24,5 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py
+      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_asset_studio.py
       - run: python -m unittest discover -s tests -v

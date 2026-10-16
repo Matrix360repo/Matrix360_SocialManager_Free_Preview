@@ -196,3 +196,7 @@ app.include_router(ai_revision_router)
 # Offline-first October marketing and lead CTA proof of concept
 from campaign_studio_poc import router as campaign_studio_router
 app.include_router(campaign_studio_router)
+
+# Reference-led artwork: staged clean backgrounds, Director proof approval.
+from brand_asset_studio import router as brand_asset_router
+app.include_router(brand_asset_router)
