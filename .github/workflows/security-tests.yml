@@ -7,12 +7,14 @@ on:
       - fix/oct16-brand-draft-proof-500
       - feature/oct16-reference-ai-image-lab
       - fix/oct16-lock-architectural-reference-generation
+      - feature/oct16-reference-grid-v1
   pull_request:
     paths:
       - 'security_roles.py'
       - 'campaign_studio_poc.py'
       - 'brand_asset_studio.py'
-      - 'reference_image_lab.py'
+      - 'reference_image_lab.py reference_grid.py'
+      - 'reference_grid.py'
       - 'app.py'
       - 'review_addon.py'
       - 'revision_agent.py'
