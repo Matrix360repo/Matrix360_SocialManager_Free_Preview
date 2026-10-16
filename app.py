@@ -208,3 +208,9 @@ app.include_router(image_lab_router)
 # Immutable architectural reference assets; Director-curated provenance.
 from reference_grid import router as reference_grid_router
 app.include_router(reference_grid_router)
+
+# Master-preserving artwork and Director-curated visual reference gallery.
+from architectural_compositor import router as architecture_compositor_router
+from reference_gallery_v2 import router as reference_gallery_router
+app.include_router(architecture_compositor_router)
+app.include_router(reference_gallery_router)
