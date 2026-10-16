@@ -2,6 +2,7 @@
 No automatic social publication, email sending, or ad spend.
 """
 import json, os, re, sqlite3, uuid, secrets, base64
+from security_roles import configured, resolve_actor, activate_actor, clear_actor, director_required
 from pathlib import Path
 from datetime import datetime, timezone
 from html import escape
@@ -16,25 +17,19 @@ app=FastAPI(title='Matrix360 Lakhotia Marketing OS Pilot',version='0.8.0')
 
 @app.middleware('http')
 async def require_pilot_auth(request: Request, call_next):
-    # In local mode (no secret), bind uvicorn to 127.0.0.1 only.
-    # If deployed, set a strong MATRIX360_API_KEY and protect all app endpoints.
+    # Public liveness, never reveals secrets. All other cloud routes fail closed.
     if os.getenv('MATRIX360_CLOUD_MODE') == '1' and request.url.path == '/health':
         return await call_next(request)
-    key=os.getenv('MATRIX360_API_KEY','').strip()
-    if os.getenv('MATRIX360_CLOUD_MODE') == '1' and (len(key) < 32 or key == 'REPLACE_WITH_A_LONG_RANDOM_SECRET'):
-        return Response('Server authentication is not configured',status_code=503)
-    if key:
-        supplied=request.headers.get('X-Matrix360-Key','')
-        basic=request.headers.get('Authorization','')
-        if basic.startswith('Basic '):
-            try:
-                decoded=base64.b64decode(basic[6:],validate=True).decode('utf-8')
-                supplied=decoded.partition(':')[2]
-            except (ValueError,UnicodeDecodeError):
-                pass
-        if not secrets.compare_digest(supplied,key):
-            return Response('Authentication required',status_code=401,headers={'WWW-Authenticate':'Basic realm="Matrix360 Pilot"'})
-    return await call_next(request)
+    if not configured():
+        return Response('Server role credentials are not configured', status_code=503)
+    actor=resolve_actor(request.headers)
+    if actor is None:
+        return Response('Authentication required',status_code=401,headers={'WWW-Authenticate':'Basic realm="Matrix360 Pilot"'})
+    token=activate_actor(actor)
+    try:
+        return await call_next(request)
+    finally:
+        clear_actor(token)
 
 @app.get('/health')
 def health():
@@ -122,6 +117,7 @@ def get_draft(draft_id:str):
     d=dict(r);d['payload']=json.loads(d['payload']);d['checks']=json.loads(d['checks']);return d
 @app.post('/api/drafts/{draft_id}/decision')
 def decision(draft_id:str,action:str=Form(...),reviewer:str=Form(...)):
+    if action=='approved': reviewer=director_required()
     if action not in ('approved','rejected','revision_requested'):raise HTTPException(422,'Invalid decision')
     if len(reviewer.strip())<2:raise HTTPException(422,'Reviewer required')
     with conn() as c:
@@ -131,7 +127,7 @@ def decision(draft_id:str,action:str=Form(...),reviewer:str=Form(...)):
         if action=='approved' and any(not x['passed'] for x in json.loads(r['checks'])):
             raise HTTPException(409,'Compliance failure. Fix before approval')
         c.execute('UPDATE drafts SET status=? WHERE id=?',(action,draft_id));c.commit()
-    return {'id':draft_id,'status':action,'reviewer':reviewer,'note':'Reviewer identity is self-declared in this local prototype; authenticate users in production.'}
+    return {'id':draft_id,'status':action,'reviewer':reviewer,'note':'Approval identity is derived from authenticated role when action is approved.'}
 @app.get('/api/drafts/{draft_id}/preview/{option}')
 def preview(draft_id:str,option:int):
     if option not in (1,2,3):raise HTTPException(404,'Invalid option')
@@ -142,6 +138,7 @@ def preview(draft_id:str,option:int):
 
 @app.get('/api/drafts/{draft_id}/download/{option}')
 def download(draft_id:str,option:int):
+    director_required()
     data=get_draft(draft_id)
     if data['status']!='approved':raise HTTPException(403,'Human approval required before download')
     if option not in (1,2,3):raise HTTPException(404,'Invalid option')
@@ -151,6 +148,7 @@ def download(draft_id:str,option:int):
 
 @app.get('/api/drafts/{draft_id}/export')
 def export(draft_id:str):
+    director_required()
     data=get_draft(draft_id)
     if data['status']!='approved':raise HTTPException(403,'Only approved drafts may be exported')
     return JSONResponse({'client_id':PROFILE['client_id'],'draft':data},headers={'Content-Disposition':f'attachment; filename="lakhotia-{draft_id}.json"'})
@@ -182,7 +180,7 @@ def review_page(draft_id:str):
     cards=''.join('<article style="border:1px solid #ccc;padding:12px;margin:12px 0;border-radius:6px"><b>Option '+str(c['option'])+' — '+escape(c['pillar'])+'</b><h3>'+escape(c['headline'])+'</h3><img width="230" src="/api/drafts/'+draft_id+'/preview/'+str(c['option'])+'"><p>'+escape(c['caption'])+'</p><p><a href="/api/drafts/'+draft_id+'/download/'+str(c['option'])+'">Download (after approval)</a></p></article>' for c in d['payload'])
     forms=''
     if d['status']=='review':
-        forms=f'<form method="post" action="/api/drafts/{draft_id}/decision"><input name="reviewer" placeholder="Reviewer name" required><select name="action"><option value="approved">Approve</option><option value="revision_requested">Request revision</option><option value="rejected">Reject</option></select><button>Submit review</button></form>'
+        forms=f'<form method="post" action="/api/drafts/{draft_id}/decision"><input name="reviewer" placeholder="Reviewer name (Director approval requires Director login)" required><select name="action"><option value="approved">Approve</option><option value="revision_requested">Request revision</option><option value="rejected">Reject</option></select><button>Submit review</button></form>'
     return f'<html><head><meta charset="utf-8"></head><body style="max-width:850px;margin:30px auto;font:16px system-ui"><a href="/">← Dashboard</a><h1>{escape(d["topic"])}</h1><p>Status: {escape(d["status"])}</p>{cards}{forms}<p><a href="/api/drafts/{draft_id}/export">Export approved JSON</a></p></body></html>'
 
 from review_addon import router as review_router
