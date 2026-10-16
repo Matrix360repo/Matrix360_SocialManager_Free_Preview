@@ -110,7 +110,10 @@ def restore_gate_record():
     Not applicable to other assets or approval states. The remote original
     must pass the pinned checksum before a verified row can be created.
     """
-    if persistence.settings() is None:
+    try:
+        if persistence.settings() is None:
+            return False
+    except persistence.StorageError:
         return False
     with dbconn() as db:
         row=db.execute("SELECT id FROM reference_grid WHERE role='locked_gate_master' AND status='verified'").fetchone()
@@ -122,6 +125,12 @@ def restore_gate_record():
     if ident:
         source=STORE/(ident+'.png')
         if source.is_file() and hashlib.sha256(source.read_bytes()).hexdigest()==GATE_SHA:
+            # Automatically back up previously registered masters after
+            # credentials are configured; no additional user upload needed.
+            try:
+                persistence.backup_gate(source.read_bytes())
+            except persistence.StorageError:
+                pass  # Current local verified master remains usable.
             return True
     try:
         raw=persistence.fetch_gate()
