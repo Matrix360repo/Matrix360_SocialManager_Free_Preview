@@ -25,6 +25,15 @@ class ReferenceRecoveryTests(unittest.TestCase):
         with patch.object(storage,'GATE_SHA',self.sha):
             return storage.backup_gate(self.raw)
 
+    def test_publishable_key_is_rejected_before_network_access(self):
+        with patch.dict('os.environ',{
+            'MATRIX_REFERENCE_SUPABASE_URL':'https://example.supabase.co',
+            'MATRIX_REFERENCE_SUPABASE_BUCKET':'matrix360-architectural-masters',
+            'MATRIX_REFERENCE_SUPABASE_SERVICE_KEY':'sb_publishable_not_a_private_key'}):
+            with self.assertRaises(storage.StorageError) as ctx:
+                storage.settings()
+            self.assertIn('server-side',str(ctx.exception))
+
     def test_missing_credentials_fail_closed(self):
         with patch.dict('os.environ',{'MATRIX_REFERENCE_SUPABASE_URL':'https://example.supabase.co',
                                      'MATRIX_REFERENCE_SUPABASE_BUCKET':'private-assets',
