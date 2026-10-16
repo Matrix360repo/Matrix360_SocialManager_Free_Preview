@@ -65,23 +65,20 @@ def backup_gate(raw):
     check(raw)
     if settings() is None:
         return False
-    # Idempotent immutable upload: existing remote content is accepted only
-    # when the exact SHA-256 verifies. Supabase may use HTTP 400 or 409 for
-    # duplicate objects; verify by reading, not by trusting error codes.
+    # A missing object may produce HTTP 400 from the Storage API.
+    # Upload first, with no upsert; an existing master cannot be overwritten.
     try:
-        existing=fetch_gate()
-    except StorageError as exc:
-        if 'HTTP 404' not in str(exc):
-            raise
-    else:
-        check(existing)
+        _request('POST', raw)
+    except StorageError as upload_error:
+        # An existing object is acceptable only when it can be read and its
+        # actual bytes independently match the approved SHA-256.
+        try:
+            fetch_gate()
+        except StorageError:
+            raise upload_error
         return True
-    try:
-        _request('POST',raw)
-    except StorageError:
-        # Concurrent request may have created the object. Only exact bytes win.
-        existing=fetch_gate()
-        check(existing)
+    # Never confirm archival until the stored bytes pass SHA verification.
+    fetch_gate()
     return True
 
 def fetch_gate():

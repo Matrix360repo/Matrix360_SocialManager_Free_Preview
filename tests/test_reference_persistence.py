@@ -47,6 +47,39 @@ class ReferenceRecoveryTests(unittest.TestCase):
                 with self.assertRaises(storage.StorageError):
                     storage.fetch_gate()
 
+    def test_first_archive_writes_before_readback(self):
+        calls=[]
+        def remote(method, raw=None):
+            calls.append(method)
+            return 201 if method=='POST' else self.raw
+        with patch.object(storage,'GATE_SHA',self.sha),patch.object(
+            storage,'settings',return_value=('https://test.supabase.co','private','token')
+        ),patch.object(storage,'_request',side_effect=remote):
+            self.assertTrue(storage.backup_gate(self.raw))
+        self.assertEqual(calls,['POST','GET'])
+
+    def test_duplicate_archive_requires_verified_existing_bytes(self):
+        calls=[]
+        def remote(method, raw=None):
+            calls.append(method)
+            if method=='POST':
+                raise storage.StorageError('Private reference storage returned HTTP 400')
+            return self.raw
+        with patch.object(storage,'GATE_SHA',self.sha),patch.object(
+            storage,'settings',return_value=('https://test.supabase.co','private','token')
+        ),patch.object(storage,'_request',side_effect=remote):
+            self.assertTrue(storage.backup_gate(self.raw))
+        self.assertEqual(calls,['POST','GET'])
+
+    def test_failed_remote_readback_never_reports_success(self):
+        def remote(method, raw=None):
+            return 201 if method=='POST' else b'wrong bytes'
+        with patch.object(storage,'GATE_SHA',self.sha),patch.object(
+            storage,'settings',return_value=('https://test.supabase.co','private','token')
+        ),patch.object(storage,'_request',side_effect=remote):
+            with self.assertRaises(storage.StorageError):
+                storage.backup_gate(self.raw)
+
     def test_backup_refuses_remote_collision(self):
         with patch.object(storage,'GATE_SHA',self.sha),patch.object(storage,'settings',return_value=('https://test.supabase.co','private','token')):
             with patch.object(storage,'_request',return_value=b'not-the-master'):
