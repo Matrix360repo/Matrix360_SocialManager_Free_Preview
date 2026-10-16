@@ -84,6 +84,29 @@ class AiStudioTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertIn("aiForm.addEventListener('submit'",script)
 
+    def test_ai_cards_include_verified_architectural_image_with_fallback(self):
+        import director_demo
+        token=activate_actor('Director')
+        try:
+            with patch.object(director_demo,'verified_master',return_value=b'approved-master'):
+                page=director_demo.director_demo().body.decode()
+        finally:
+            clear_actor(token)
+        self.assertIn('class="ai-master-image"',page)
+        self.assertIn('ai-visual-footer',page)
+        self.assertIn('Approved architectural visual unavailable',page)
+        self.assertIn('src="/api/director-demo/gate"',page)
+        self.assertIn('onerror="this.hidden=true;this.nextElementSibling.hidden=false"',page)
+
+    def test_image_endpoint_returns_unmodified_original(self):
+        import director_demo
+        original=b'checksum-verified-test-master'
+        with patch.object(director_demo,'verified_master',return_value=original):
+            response=director_demo.architectural_image()
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.media_type,'image/png')
+        self.assertEqual(response.body,original)
+
     def test_ui_contains_real_generate_control(self):
         import director_demo
         t=activate_actor('Director')
