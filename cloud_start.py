@@ -47,8 +47,18 @@ def storage_preflight():
             result='not_configured'
         else:
             try:
-                store.fetch_gate()
-                result='remote_master_verified'
+                import reference_grid as grid
+                if grid.restore_gate_record():
+                    # Verify both the reconstructed registry and local bytes.
+                    with grid.dbconn() as db:
+                        record=db.execute("SELECT id FROM reference_grid WHERE role='locked_gate_master' AND status='verified' AND sha256=?",(grid.GATE_SHA,)).fetchone()
+                    local=grid.STORE/(record[0]+'.png') if record else None
+                    import hashlib
+                    result=('master_restored_and_verified' if local is not None and local.is_file()
+                            and hashlib.sha256(local.read_bytes()).hexdigest()==grid.GATE_SHA
+                            else 'recovery_not_verified')
+                else:
+                    result='remote_master_unavailable'
             except store.StorageError as exc:
                 # Only controlled, internally authored exception messages.
                 result=str(exc)
