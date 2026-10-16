@@ -173,7 +173,7 @@ main{margin-left:245px;padding:0 36px 80px;max-width:1840px}.topbar{display:flex
 .eventline{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #e4eae4;font-size:12px}.eventline span{color:#819087}
 .publish{display:flex;align-items:center;justify-content:space-between;gap:20px;border:1px solid #e8d4ce;background:#fff8f5;border-radius:12px;padding:19px 24px;margin-top:18px}.publish h3{margin:0;font-size:16px}.publish p{margin:3px 0 0;font-size:12px;color:#826c67}
 button:disabled{opacity:.5;cursor:not-allowed}.footer{font-size:11px;color:#84928a;margin-top:20px}.toast{position:fixed;bottom:24px;right:24px;background:#183d34;color:white;padding:15px 19px;border-radius:9px;box-shadow:0 8px 35px #0003;z-index:9;max-width:380px;display:none}
-@media(max-width:1200px){aside{width:190px}main{margin-left:190px;padding:0 22px}.concepts{gap:12px}.lower{grid-template-columns:1fr}.art{padding:14px}}@media(max-width:850px){aside{position:static;width:auto;padding:15px;display:block}nav{margin:12px 0 0;display:flex;overflow:auto}.nav-bottom{display:none}main{margin-left:0}.concepts{grid-template-columns:1fr;max-width:500px;margin:auto}.metrics{grid-template-columns:repeat(2,1fr)}.scenes{grid-template-columns:repeat(2,1fr)}.hero{display:block}}
+.ai-workspace{margin-bottom:34px;border-top:3px solid var(--orange)}.ai-workspace .section-heading{margin-top:0}.ai-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;align-items:end}.ai-form label{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:800;color:#51665d;letter-spacing:.2px}.ai-form select,.ai-form textarea{border:1px solid #cedbd2;border-radius:8px;padding:12px;font:13px system-ui;background:#f8faf8;width:100%;color:#263c34}.ai-form .ai-brief{grid-column:1/-1}.ai-form textarea{resize:vertical;min-height:80px}.ai-form button{grid-column:1/-1;justify-self:start}.ai-feedback{font-size:11px;color:#637a6d;margin-top:14px}.ai-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:16px}.ai-result{border:1px solid #d9e4dc;border-radius:10px;background:#f8faf7;padding:17px;min-width:0}.ai-result h3{font-size:19px;letter-spacing:-.5px;line-height:1.16;margin:8px 0}.ai-result p{font-size:12px;margin:8px 0;color:#3a5048}.ai-result .ai-meta{font-size:10px;letter-spacing:.8px;color:#a76541;font-weight:800}.ai-result .issues{color:#9c492e;font-size:11px}.ai-result .ai-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:17px}.ai-buttons button{padding:8px 10px;border:1px solid #c9d6ce;border-radius:6px;background:white;color:#123b32;font-weight:750;font-size:11px}.ai-buttons .approve{background:#174a3d;color:white}.ai-buttons button:disabled{opacity:.45}.ai-result .result-status{font-weight:800;font-size:11px;margin:9px 0 0;color:#637b6d}@media(max-width:1050px){.ai-form{grid-template-columns:repeat(2,1fr)}.ai-results{grid-template-columns:1fr}}@media(max-width:1200px){aside{width:190px}main{margin-left:190px;padding:0 22px}.concepts{gap:12px}.lower{grid-template-columns:1fr}.art{padding:14px}}@media(max-width:850px){aside{position:static;width:auto;padding:15px;display:block}nav{margin:12px 0 0;display:flex;overflow:auto}.nav-bottom{display:none}main{margin-left:0}.concepts{grid-template-columns:1fr;max-width:500px;margin:auto}.metrics{grid-template-columns:repeat(2,1fr)}.scenes{grid-template-columns:repeat(2,1fr)}.hero{display:block}}
 """
 
 @router.get('/director-demo',response_class=HTMLResponse)
@@ -192,7 +192,7 @@ def director_demo():
     <style>'''+CSS+'''</style></head><body>
     <aside><div class="brand">MATRIX<span style="color:#df784d">360</span><small>MARKETING INTELLIGENCE</small></div>
     <nav><a class="active" href="#overview">◫ &nbsp; Overview</a>
-    <a href="#concepts">▣ &nbsp; Creative Studio</a><a href="#storyboard">▷ &nbsp; Video Storyboard</a>
+    <a href="#ai-studio">✦ &nbsp; AI Content Studio</a><a href="#concepts">▣ &nbsp; Creative Studio</a><a href="#storyboard">▷ &nbsp; Video Storyboard</a>
     <a href="#consultation">↗ &nbsp; Conversion & Tracking</a><a href="#approval">✓ &nbsp; Director Approval</a></nav>
     <div class="nav-bottom">CONTROLLED PILOT · 16 OCT 2026<br>Architectural source locked<br>No direct social publishing</div></aside>
     <main id="overview"><div class="topbar"><span class="crumb">CLIENT WORKSPACE &nbsp;/&nbsp; LAKHOTIA INDUSTRIAL COMPLEX</span>
@@ -205,6 +205,24 @@ def director_demo():
     <div class="metric"><b>30s</b><small>Video storyboard</small></div>
     <div class="metric"><b>01</b><small>Tracked consultation CTA</small></div>
     <div class="metric"><b>LOCKED</b><small>Architectural source</small></div></div>
+    <section id="ai-studio" class="panel ai-workspace">
+      <div class="section-heading"><div><div class="kicker">NEW / AI CONTENT GENERATION</div>
+        <h2>Generate fresh campaign ideas with AI</h2></div><span class="chip">Director-triggered · Text only</span></div>
+      <p>Enter a brief and generate three new, distinct campaign directions using the configured model. Outputs are AI-written drafts — not prewritten templates — and remain unapproved until reviewed. Original architectural imagery is always locked.</p>
+      <form id="ai-form" class="ai-form">
+        <label class="ai-brief">What should the campaign communicate?
+          <textarea name="brief" minlength="15" maxlength="900" required rows="3"
+            placeholder="e.g. Generate three non-generic B2B campaign angles for manufacturers planning a West Bengal expansion, focusing on decision confidence and consultation.">Create three fresh campaign concepts focused on why manufacturers should consider careful industrial land planning before expansion in West Bengal.</textarea>
+        </label>
+        <label>Target audience<select name="audience"><option>Manufacturing businesses</option><option>Warehousing operators</option><option>Logistics and 3PL</option><option>Industrial investors and occupiers</option></select></label>
+        <label>Objective<select name="objective"><option>Consultation enquiries</option><option>Awareness</option><option>Thought leadership</option></select></label>
+        <label>Channel<select name="platform"><option>Instagram</option><option>LinkedIn</option></select></label>
+        <label>AI model<select name="provider"><option value="openai">OpenAI · GPT-4.1-mini</option><option value="groq">Groq · if configured</option></select></label>
+        <button class="primary" type="submit" id="ai-submit">✦ Generate 3 AI concepts</button>
+      </form>
+      <div id="ai-feedback" class="ai-feedback" role="status">AI requests may incur model API charges. No image generation, sends or publishing.</div>
+      <div id="ai-output" class="ai-results" aria-live="polite"></div>
+    </section>
     <section id="concepts"><div class="section-heading"><div><div class="kicker">01 / CREATIVE STUDIO</div>
     <h2>Three campaign directions</h2></div><p>4:5 visual concepts · Exact verified gate master · Original artwork untouched</p></div>
     <div class="concepts">'''+cards+'''</div></section>
@@ -257,6 +275,52 @@ def director_demo():
       notify(res.status===409?'Publishing safely blocked: '+data.detail:
         res.status===403?'Publishing blocked: Director authorization required.':
         'Publishing unavailable.');
+    }
+    let activeBatch=null;
+    const aiForm=document.getElementById('ai-form');
+    const resultContainer=document.getElementById('ai-output');
+    function safeText(s){return String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+    function showAi(data){
+      activeBatch=data.id;
+      resultContainer.innerHTML=(data.candidates||[]).map((c,i)=>{
+        const check=(data.checks||[])[i]||{passed:false,issues:['Compliance not evaluated']};
+        return '<article class="ai-result"><div class="ai-meta">AI CONCEPT 0'+(i+1)+' · '+safeText(data.provider)+' · '+safeText(c.pillar)+'</div>'+
+        '<h3>'+safeText(c.headline)+'</h3><p>'+safeText(c.subheadline)+'</p>'+
+        '<p>'+safeText(c.caption)+'</p><div class="ai-meta">CREATIVE DIRECTION</div><p>'+safeText(c.creative_guidance)+'</p>'+
+        '<div class="'+(check.passed?'result-status':'issues')+'">'+(check.passed?'Automated screen passed · Director review required':'Flagged: '+safeText((check.issues||[]).join('; ')))+'</div>'+
+        '<div class="result-status" id="ai-state-'+(i+1)+'">Awaiting Director review</div>'+
+        '<div class="ai-buttons"><button type="button" class="approve" '+(check.passed?'':'disabled')+' onclick="reviewAi('+(i+1)+',\'approved\')">Approve</button>'+
+        '<button type="button" onclick="reviewAi('+(i+1)+',\'rejected\')">Reject</button>'+
+        '<button type="button" onclick="reviewAi('+(i+1)+',\'revision_requested\')">Request revision</button></div></article>';
+      }).join('');
+    }
+    aiForm.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=document.getElementById('ai-submit');
+      btn.disabled=true;btn.textContent='Generating AI concepts…';
+      document.getElementById('ai-feedback').textContent='Requesting three new text concepts. Verified architecture is not sent for image editing.';
+      try{
+        const res=await fetch('/api/director-demo/ai/generate',{method:'POST',body:new FormData(aiForm)});
+        const payload=await res.json();
+        if(!res.ok){throw Error(payload.detail||'AI generation failed')}
+        showAi(payload);
+        document.getElementById('ai-feedback').textContent='Generated using '+payload.provider+' / '+payload.model+'. Stored as unapproved text drafts in preview database. No publishing.';
+      }catch(err){document.getElementById('ai-feedback').textContent='Generation failed: '+err.message;}
+      finally{btn.disabled=false;btn.textContent='✦ Generate 3 AI concepts';}
+    });
+    async function reviewAi(option,decision){
+      if(!activeBatch){notify('Generate AI content first');return;}
+      const note=decision==='revision_requested'?prompt('Describe the required revision:'):
+        decision==='rejected'?prompt('Rejection reason (optional):',''):'';
+      if(note===null)return;
+      const body=new URLSearchParams({decision,note:note||''});
+      try{
+        const res=await fetch('/api/director-demo/ai/batches/'+encodeURIComponent(activeBatch)+'/'+option+'/decision',{method:'POST',body});
+        const payload=await res.json();
+        if(!res.ok)throw Error(payload.detail||'Review declined');
+        document.getElementById('ai-state-'+option).textContent='Director decision: '+decision.replaceAll('_',' ')+'. Not published.';
+        notify('AI concept 0'+option+': '+decision+'. Publishing remains blocked.');
+      }catch(err){notify(err.message);}
     }
     refresh();
     </script></body></html>'''
