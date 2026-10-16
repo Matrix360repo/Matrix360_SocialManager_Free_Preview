@@ -247,5 +247,5 @@ def render_card(candidate,path,kind=0):
     return path
 
 
-from creative_renderer_v07 import render_card_v07
-render_card = render_card_v07
+from brand_renderer_v14 import render_card_v14
+render_card = render_card_v14
