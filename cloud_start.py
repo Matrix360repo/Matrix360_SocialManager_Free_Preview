@@ -34,8 +34,31 @@ def prepare():
         shutil.rmtree(DATA)
         DATA.symlink_to(target, target_is_directory=True)
 
+def storage_preflight():
+    """Safe startup status only: never emit secrets, object bytes or URLs."""
+    import reference_persistence as store
+    key=os.getenv('MATRIX_REFERENCE_SUPABASE_SERVICE_KEY','')
+    key_type=('modern_secret' if key.startswith('sb_secret_') else
+              'publishable_wrong_role' if key.startswith('sb_publishable_') else
+              'legacy_jwt' if key.count('.')==2 else
+              'other_or_missing')
+    try:
+        if store.settings() is None:
+            result='not_configured'
+        else:
+            try:
+                store.fetch_gate()
+                result='remote_master_verified'
+            except store.StorageError as exc:
+                # Only controlled, internally authored exception messages.
+                result=str(exc)
+    except store.StorageError as exc:
+        result=str(exc)
+    print('MATRIX360_REFERENCE_PREFLIGHT key_type='+key_type+' result='+result,flush=True)
+
 if __name__=='__main__':
     prepare()
+    storage_preflight()
     import uvicorn
     port=int(os.environ.get('PORT','10000'))
     uvicorn.run('app:app',host='0.0.0.0',port=port,proxy_headers=True)
