@@ -36,7 +36,7 @@ def _footer(im,dark=False,cta=None):
     d.text((515,1279),WEB,font=_f(23),fill=fg)
     d.text((870,1323),"DRAFT • REVIEW",font=_f(13,True),fill="#a5c0b5" if dark else "#6a8b80")
 
-def _heading(d,headline,y=230,size=61,lines=3,color=C):
+def _heading(d,headline,y=230,size=61,lines=3,color=C,x=58,max_width=960):
     headline=(headline or "").strip()
     if not headline:raise ValueError("Headline is empty")
     # Reject layout overflow instead of truncating claims.
@@ -44,13 +44,14 @@ def _heading(d,headline,y=230,size=61,lines=3,color=C):
     words=headline.split();wrapped=[];line=""
     for word in words:
         candidate=(line+" "+word).strip()
-        if d.textbbox((0,0),candidate,font=font)[2]>960 and line:
+        if d.textbbox((0,0),candidate,font=font)[2]>max_width and line:
             wrapped.append(line);line=word
         else:line=candidate
     if line:wrapped.append(line)
-    if len(wrapped)>lines:raise ValueError("Headline too long for visual layout")
+    if len(wrapped)>lines or any(d.textbbox((0,0),row,font=font)[2]>max_width for row in wrapped):
+        raise ValueError("Headline too long for visual layout")
     for line in wrapped:
-        d.text((58,y),line,font=font,fill=color)
+        d.text((x,y),line,font=font,fill=color)
         y+=int(size*1.19)
     return y
 
@@ -77,7 +78,7 @@ def _opportunity(c):
         d.text((342,y-4),body,font=_f(25),fill="white")
         if i<3:d.line((100,y+51,980,y+51),fill="#41665e",width=2)
     d.text((63,1060),"2,500+ bighas planned expansion",font=_f(29,True),fill=C)
-    d.text((64,1110),"Project facts • development and expansion are not completion claims",font=_f(19),fill=N)
+    d.text((64,1110),"Free consultation by an expert panel",font=_f(22),fill=N)
     _footer(im,cta=c.get("cta"))
     return im
 
@@ -87,7 +88,7 @@ def _framework(c):
     d.rectangle((0,0,14,1180),fill=O)
     _logo(im,60,40)
     d.text((62,169),"LAKHOTIA INDUSTRIAL COMPLEX",font=_f(24,True),fill=C)
-    d.text((62,216),"PLAN YOUR NEXT INDUSTRIAL MOVE",font=_f(21,True),fill=O)
+    d.text((62,216),"INDUSTRIAL PLANNING FRAMEWORK",font=_f(21,True),fill=O)
     _heading(d,c.get("headline"),y=275,size=58,lines=3)
     blocks=[
       ("01","LOCATION","Ranihati–Amta Road, Howrah"),
@@ -114,13 +115,16 @@ def _consultation(c):
     d.rectangle((59,214,1021,529),fill=C)
     d.rectangle((59,214,74,529),fill=O)
     # Reduced size protects line fit in dark panel.
-    _heading(d,c.get("headline"),y=257,size=56,lines=3,color="white")
+    _heading(d,c.get("headline"),y=257,size=54,lines=3,color="white",x=105,max_width=850)
     d.text((60,558),"Industrial land decisions deserve informed planning.",font=_f(25),fill=N)
     imgpath=BASE/"assets"/"consultation_reference.png"
     with Image.open(imgpath) as original:
         original=original.convert("RGB")
         # Only historical consultation artwork, never positioned as actual project/site.
-        top=int(original.height*0.64);bottom=int(original.height*0.91)
+        # Use the historically verified clean photographic strip, excluding
+        # the embedded bottom CTA in the original composite artwork.
+        top=int(original.height*0.59);bottom=int(original.height*0.84)
+        if bottom<=top:raise ValueError("Invalid consultation reference crop")
         crop=original.crop((0,top,original.width,bottom))
         crop=ImageOps.fit(crop,(960,440),method=Image.Resampling.LANCZOS)
         im.paste(crop,(60,622))
