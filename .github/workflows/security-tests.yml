@@ -4,6 +4,7 @@ on:
     branches:
       - stabilization/oct19-security-tests
       - feature/oct16-reference-asset-workflow
+      - fix/oct16-brand-draft-proof-500
   pull_request:
     paths:
       - 'security_roles.py'
