@@ -64,6 +64,26 @@ class AiStudioTests(unittest.TestCase):
                 self.assertEqual(ai.batch_detail(result['id'])['reviews']['1']['decision'],'approved')
         finally:clear_actor(t)
 
+    def test_rendered_browser_script_has_valid_javascript_syntax(self):
+        import director_demo
+        import shutil
+        import subprocess
+        if shutil.which('node') is None:
+            self.skipTest('Node.js not installed for browser script parsing')
+        t=activate_actor('Director')
+        try:
+            with patch.object(director_demo,'verified_master',return_value=b'verified-gate'):
+                html=director_demo.director_demo().body.decode('utf-8')
+        finally:
+            clear_actor(t)
+        script=html.split('<script>',1)[1].split('</script>',1)[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            script_path=Path(tmp)/'director-demo.js'
+            script_path.write_text(script,encoding='utf-8')
+            result=subprocess.run(['node','--check',str(script_path)],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn("aiForm.addEventListener('submit'",script)
+
     def test_ui_contains_real_generate_control(self):
         import director_demo
         t=activate_actor('Director')

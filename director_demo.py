@@ -289,9 +289,9 @@ def director_demo():
         '<p>'+safeText(c.caption)+'</p><div class="ai-meta">CREATIVE DIRECTION</div><p>'+safeText(c.creative_guidance)+'</p>'+
         '<div class="'+(check.passed?'result-status':'issues')+'">'+(check.passed?'Automated screen passed · Director review required':'Flagged: '+safeText((check.issues||[]).join('; ')))+'</div>'+
         '<div class="result-status" id="ai-state-'+(i+1)+'">Awaiting Director review</div>'+
-        '<div class="ai-buttons"><button type="button" class="approve" '+(check.passed?'':'disabled')+' onclick="reviewAi('+(i+1)+',\'approved\')">Approve</button>'+
-        '<button type="button" onclick="reviewAi('+(i+1)+',\'rejected\')">Reject</button>'+
-        '<button type="button" onclick="reviewAi('+(i+1)+',\'revision_requested\')">Request revision</button></div></article>';
+        '<div class="ai-buttons"><button type="button" class="approve" '+(check.passed?'':'disabled')+' onclick="reviewAi('+(i+1)+',&quot;approved&quot;)">Approve</button>'+
+        '<button type="button" onclick="reviewAi('+(i+1)+',&quot;rejected&quot;)">Reject</button>'+
+        '<button type="button" onclick="reviewAi('+(i+1)+',&quot;revision_requested&quot;)">Request revision</button></div></article>';
       }).join('');
     }
     aiForm.addEventListener('submit',async e=>{
