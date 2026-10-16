@@ -158,9 +158,19 @@ def storage_status():
     except persistence.StorageError:
         configured=False
     recovered=restore_gate_record() if configured else False
-    return {'durable_storage_configured':configured,'verified_master_available':recovered,
+    remote_verified=False
+    if configured:
+        try:
+            persistence.fetch_gate()
+            remote_verified=True
+        except persistence.StorageError:
+            pass
+    return {'durable_storage_configured':configured,
+            'verified_master_available':recovered,
+            'remote_master_checksum_verified':remote_verified,
+            'survives_ephemeral_restart':remote_verified,
             'mode':'private_immutable_object_store' if configured else 'ephemeral_preview',
-            'warning':None if configured else 'No durable storage credentials configured; files will disappear after redeploy'}
+            'warning':None if remote_verified else 'No checksum-verified remote master yet; automatic restart recovery is not guaranteed'}
 
 @router.get('/api/reference-grid/assets')
 def list_references():
