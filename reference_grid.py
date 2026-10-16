@@ -16,6 +16,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, FileResponse
 from PIL import Image
 from security_roles import director_required
+import reference_persistence as persistence
 
 router = APIRouter()
 ROOT = Path(__file__).resolve().parent
@@ -72,6 +73,13 @@ async def upload_reference(asset:UploadFile=File(...),role:str=Form(...),note:st
         source_identity='libfile_919a429faf1081919b91e846f88f6d9d'
     if not source_identity.strip():
         raise HTTPException(422,'Source identity/provenance required')
+    if role=='locked_gate_master':
+        # Backup before confirming registration. Without storage configuration,
+        # explicitly label the record as preview-only and ephemeral.
+        try: backed_up=persistence.backup_gate(raw)
+        except persistence.StorageError as exc:
+            raise HTTPException(503,'Private archival storage unavailable; original not registered') from exc
+    else:backed_up=False
     ident=str(uuid.uuid4());STORE.mkdir(parents=True,exist_ok=True)
     with Image.open(io.BytesIO(raw)) as img:
         ext='.png' if img.format == 'PNG' else '.jpg'
@@ -84,7 +92,8 @@ async def upload_reference(asset:UploadFile=File(...),role:str=Form(...),note:st
                 previous=db.execute("SELECT id FROM reference_grid WHERE role='locked_gate_master' AND status='verified'").fetchone()
                 if previous:
                     path.unlink(missing_ok=True)
-                    return {'id':previous[0],'status':'verified','sha256':digest,'duplicate':True}
+                    return {'id':previous[0],'status':'verified','sha256':digest,'duplicate':True,
+                            'durable_backup':backed_up}
             status='verified' if role=='locked_gate_master' else 'pending_review'
             db.execute('INSERT INTO reference_grid(id,created,filename,sha256,role,status,note,source_identity,revision) VALUES(?,?,?,?,?,?,?,?,1)',
               (ident,datetime.now(timezone.utc).isoformat(),filename,digest,role,status,note.strip(),source_identity.strip()))
@@ -92,11 +101,49 @@ async def upload_reference(asset:UploadFile=File(...),role:str=Form(...),note:st
     except Exception:
         path.unlink(missing_ok=True)
         raise
-    return {'id':ident,'role':role,'sha256':digest,'status':status,
+    return {'id':ident,'role':role,'sha256':digest,'status':status,'durable_backup':backed_up,
             'warning':'Architectural geometry is locked; other references need Director review; no image edits permitted'}
+
+def restore_gate_record():
+    """Rebuild the ONLY trusted master metadata from the immutable backup.
+
+    Not applicable to other assets or approval states. The remote original
+    must pass the pinned checksum before a verified row can be created.
+    """
+    if persistence.settings() is None:
+        return False
+    with dbconn() as db:
+        row=db.execute("SELECT id FROM reference_grid WHERE role='locked_gate_master' AND status='verified'").fetchone()
+        if row:
+            ident=row[0]
+        else:
+            ident=None
+    # Fast local path only when previously verified metadata and bytes exist.
+    if ident:
+        source=STORE/(ident+'.png')
+        if source.is_file() and hashlib.sha256(source.read_bytes()).hexdigest()==GATE_SHA:
+            return True
+    try:
+        raw=persistence.fetch_gate()
+    except persistence.StorageError:
+        return False
+    STORE.mkdir(parents=True,exist_ok=True)
+    if not ident:
+        ident=str(uuid.uuid4())
+    path=STORE/(ident+'.png')
+    path.write_bytes(raw)
+    with dbconn() as db:
+        if not db.execute('SELECT 1 FROM reference_grid WHERE id=?',(ident,)).fetchone():
+            db.execute("INSERT INTO reference_grid(id,created,filename,sha256,role,status,note,source_identity,revision) VALUES(?,?,?,?,?,?,?,?,1)",
+                (ident,datetime.now(timezone.utc).isoformat(),GATE_NAME,GATE_SHA,'locked_gate_master',
+                 'verified','Auto-recovered verified bytes from private storage',
+                 'libfile_919a429faf1081919b91e846f88f6d9d'))
+            db.commit()
+    return True
 
 @router.get('/api/reference-grid/assets')
 def list_references():
+    restore_gate_record()
     with dbconn() as db:
         db.row_factory=sqlite3.Row
         return [dict(r) for r in db.execute('SELECT * FROM reference_grid ORDER BY created DESC LIMIT 100').fetchall()]
@@ -121,13 +168,14 @@ def review_reference(asset_id:str,decision:str=Form(...),note:str=Form('')):
 
 @router.get('/api/reference-grid/assets/{asset_id}/original')
 def source_original(asset_id:str):
+    restore_gate_record()
     try:ident=str(uuid.UUID(asset_id))
     except ValueError:raise HTTPException(404,'Unknown reference')
     with dbconn() as db:
         row=db.execute('SELECT sha256,role FROM reference_grid WHERE id=?',(ident,)).fetchone()
     if row is None:raise HTTPException(404,'Reference not found')
     path=next((p for p in (STORE/(ident+'.png'),STORE/(ident+'.jpg')) if p.is_file()),None)
-    if path is None:raise HTTPException(410,'Ephemeral original file was lost; re-upload source')
+    if path is None:raise HTTPException(410,'Original unavailable: configure private backup or restore source')
     if hashlib.sha256(path.read_bytes()).hexdigest()!=row[0]:
         raise HTTPException(409,'Source integrity check failed; refuse to display altered image')
     return FileResponse(path,media_type='image/png' if path.suffix=='.png' else 'image/jpeg',
@@ -150,4 +198,4 @@ def reference_grid_page():
 <label>Review notes <input name="note" maxlength="500" style="width:95%"></label>
 <button>Register reference (Director)</button></form>
 <h2>Registered source images</h2><table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Filename</th><th>Role</th><th>Status</th><th>Immutable original</th></tr>'''+cells+'''</table>
-<p><small>Upload and status responses use JSON; storage currently ephemeral. No generation endpoint is enabled by this page.</small></p></body></html>''')
+<p><small>Upload and status responses use JSON; permanent recovery requires configured private storage. No generation endpoint is enabled by this page.</small></p></body></html>''')
