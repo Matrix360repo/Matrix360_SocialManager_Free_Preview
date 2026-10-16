@@ -32,7 +32,7 @@ class ReferenceGridTests(unittest.TestCase):
         token=activate_actor('operator')
         try:
             with self.assertRaises(HTTPException) as ctx:
-                grid.review_reference('00000000-0000-0000-0000-000000000001','approved_reference')
+                grid.review_reference('00000000-0000-0000-0000-000000000001','approved_reference','')
             self.assertEqual(ctx.exception.status_code,403)
         finally:
             clear_actor(token)
