@@ -8,6 +8,7 @@ on:
       - feature/oct16-reference-ai-image-lab
       - fix/oct16-lock-architectural-reference-generation
       - feature/oct16-reference-grid-v1
+      - feature/oct16-reference-grid-v2-gallery-compositor
   pull_request:
     paths:
       - 'security_roles.py'
@@ -15,6 +16,8 @@ on:
       - 'brand_asset_studio.py'
       - 'reference_image_lab.py'
       - 'reference_grid.py'
+      - 'reference_gallery_v2.py'
+      - 'architectural_compositor.py'
       - 'app.py'
       - 'review_addon.py'
       - 'revision_agent.py'
@@ -30,5 +33,5 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_asset_studio.py reference_image_lab.py reference_grid.py
+      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_asset_studio.py reference_image_lab.py reference_grid.py reference_gallery_v2.py architectural_compositor.py
       - run: python -m unittest discover -s tests -v
