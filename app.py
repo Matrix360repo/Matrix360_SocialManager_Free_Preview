@@ -192,3 +192,7 @@ app.include_router(revision_router)
 
 from ai_revision_v13 import router as ai_revision_router
 app.include_router(ai_revision_router)
+
+# Offline-first October marketing and lead CTA proof of concept
+from campaign_studio_poc import router as campaign_studio_router
+app.include_router(campaign_studio_router)
