@@ -18,7 +18,7 @@ import reference_grid as grid
 router=APIRouter()
 ROOT=Path(__file__).resolve().parent
 W,H=1080,1350
-PANEL=(28,245,1052,913)
+PANEL=(28,315,1052,913)
 NAVY='#142c43'
 GREEN='#073e36'
 ORANGE='#e96125'
@@ -60,8 +60,18 @@ def make_gate_proof(raw:bytes,headline:str='Land at the right place for your bus
         else:part=maybe
     if part:lines.append(part)
     if len(lines)>2:raise HTTPException(422,'Headline exceeds allocated layout')
+    headline_font=_f(46,True)
+    last_bottom=0
     for i,line in enumerate(lines):
-        draw.text((43,166+i*54),line,font=_f(46,True),fill=NAVY)
+        top=166+i*54
+        bounds=draw.textbbox((43,top),line,font=headline_font)
+        last_bottom=max(last_bottom,bounds[3])
+    # Fixed spacing is not sufficient for wrapped headlines. Refuse overlaps
+    # instead of silently covering characters with the architectural panel.
+    if last_bottom+28>PANEL[1]:
+        raise HTTPException(422,'Headline exceeds safe image clearance')
+    for i,line in enumerate(lines):
+        draw.text((43,166+i*54),line,font=headline_font,fill=NAVY)
     # The architectural master is fitted in full, not cropped or redrawn.
     source=Image.open(io.BytesIO(raw)).convert('RGB')
     x0,y0,x1,y1=PANEL
