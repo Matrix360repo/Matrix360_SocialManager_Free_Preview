@@ -213,7 +213,10 @@ def brand_studio():
                     '<button name="decision" value="approved_proof">Director: approve internal proof</button> '
                     '<button name="decision" value="rejected" formnovalidate>Reject asset</button></form>')
         elif status=='approved_proof':
-            action=f'<a href="/api/brand-studio/assets/{ident}/proof">Render proof PNG</a>'
+            action=(f'<a href="/api/brand-studio/assets/{ident}/proof">Render standalone proof PNG</a>'
+                    f'<p>To preview a draft candidate, visit '
+                    f'<code>/api/brand-studio/assets/{ident}/draft/YOUR_DRAFT_ID/option/1/proof</code> '
+                    f'with your draft UUID. Options 1-3 are supported, compliance enforced.</p>')
         else:action='Rejected'
         cards.append(f'<li><b>{name}</b> ({status}) — <a href="/api/brand-studio/assets/{ident}/image">View</a> · {action}</li>')
     return HTMLResponse('''<!doctype html><html><head><meta charset="utf-8"><title>Matrix360 · Brand Asset Studio</title><style>body{font:16px system-ui;margin:35px auto;max-width:940px;background:#f5f7f4;color:#063d34;padding:15px}article{background:white;padding:26px;border-radius:12px;margin:18px 0}label{display:block;margin:12px 0}input,button{padding:12px}button{background:#e95b20;color:white;border:0;border-radius:6px}li{margin:12px}</style></head><body><p><a href="/campaign-studio">← Campaign Studio</a></p><h1>Reference Asset Studio · Internal Proof Only</h1><article><h2>Stage a clean photographic/industrial background</h2><p>Upload only a licensed, brand-approved, clean background with no embedded old numbers, text, logos or CTAs. Render Free loses uploads on restart.</p><form action="/api/brand-studio/assets" method="post" enctype="multipart/form-data"><label>Clean plate (PNG or JPEG, max 12 MB) <input type="file" name="asset" accept="image/png,image/jpeg" required></label><button>Upload for Director review</button></form><p>Uploads return JSON. Share the returned asset ID with the Director for a review request.</p></article><article><h2>Staged assets</h2><ul>'''+''.join(cards)+'''</ul><p>Director credentials are required to approve a staged background. Approved here means internal proof only—not production or publishing approval.</p></article></body></html>''')
