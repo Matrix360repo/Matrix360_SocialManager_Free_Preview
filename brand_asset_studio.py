@@ -4,6 +4,7 @@ Human review is required because image raster analysis does not reliably detect
 legacy text/claims. Public free-preview storage is EPHEMERAL, not client storage.
 """
 import hashlib
+import json
 import io
 import sqlite3
 import uuid
