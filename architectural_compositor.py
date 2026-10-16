@@ -24,6 +24,7 @@ GREEN='#073e36'
 ORANGE='#e96125'
 
 def load_verified_gate(reference_id:str):
+    grid.restore_gate_record()
     try:rid=str(uuid.UUID(reference_id))
     except ValueError as exc:raise HTTPException(404,'Unknown gate reference') from exc
     with grid.dbconn() as db:
@@ -110,6 +111,7 @@ def locked_gate_proof(reference_id:str):
 @router.get('/architectural-compositor',response_class=HTMLResponse)
 def compositor_page():
     director_required()
+    grid.restore_gate_record()
     with grid.dbconn() as db:
         rows=db.execute("SELECT id,filename FROM reference_grid WHERE role='locked_gate_master' AND status='verified'").fetchall()
     if not rows:return HTMLResponse('<h1>No verified gate master</h1><p><a href="/reference-grid">Register the checksum-verified master</a> first.</p>')
