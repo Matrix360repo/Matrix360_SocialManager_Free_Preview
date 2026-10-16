@@ -73,7 +73,8 @@ async def upload_reference(asset:UploadFile=File(...),role:str=Form(...),note:st
     if not source_identity.strip():
         raise HTTPException(422,'Source identity/provenance required')
     ident=str(uuid.uuid4());STORE.mkdir(parents=True,exist_ok=True)
-    ext='.png' if raw[:8]==b'\\x89PNG\\r\\n\\x1a\\n' else '.jpg'
+    with Image.open(io.BytesIO(raw)) as img:
+        ext='.png' if img.format == 'PNG' else '.jpg'
     path=STORE / (ident+ext)
     path.write_bytes(raw)
     try:
