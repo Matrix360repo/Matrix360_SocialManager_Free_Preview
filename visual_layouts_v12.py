@@ -58,3 +58,13 @@ def render(candidate,path,mode):
         text_lines(d,cta.upper(),75,1126,910,27,'white',True,1.08,2)
         foot(im,False)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);im.save(path,format='PNG');return path
+
+# v1.4 brand refinement: retain public v1.2 renderer API for stored revisions,
+# but route all newly generated versions through the same approved brand system.
+from brand_renderer_v14 import render_card_v14 as _render_brand_v14
+def render(candidate,path,mode):
+    if mode not in MODES:
+        raise ValueError('Unknown visual direction')
+    next_candidate=dict(candidate)
+    next_candidate['design_style']=mode
+    return _render_brand_v14(next_candidate,path,0)

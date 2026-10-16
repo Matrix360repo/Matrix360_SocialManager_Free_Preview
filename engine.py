@@ -86,6 +86,14 @@ def _call_model(cfg, profile, topic, objective, platform):
                 'caption (max 800 chars), cta, creative_guidance, objective, platform. Use only approved facts. '
                 'Never invent project facilities, delivery timelines, ROI, or imply planned amenities are operational. '
                 'Area size: 1,000 bighas under development; expansion plan 2,500+ bighas. '
+                'Brand grammar: premium business-first, consultative, deep green, restrained orange, off-white; '
+                'official Lakhotia Group logo unchanged; headline-first visual hierarchy and uncluttered footer. '
+                'Write specifically about Lakhotia Industrial Complex; avoid generic real-estate slogans. '
+                'For industrial-growth creatives use industrial planning/site-development themes; for consultation use enterprise planning discussions. '
+                'Never suggest 1,000 bighas are ready now, available for immediate occupation, completed, or operational. '
+                'Do not say prime industrial land, seamless connectivity, assured returns or guaranteed suitability. '
+                'Use exactly: 1,000 bighas under development; 2,500+ bighas planned expansion. '
+                'Use approximately 4 km from NH-16, not a guaranteed travel time. '
                 'Keep readable, non-generic content. Every caption includes +91 74500 08999 and www.lakhotiaindustrialcomplex.com. '
                 'Do not include 800 bighas.'
             )},
@@ -167,6 +175,16 @@ def verify(items):
         text=' '.join(str(v) for v in c.values())
         errors=[]
         if re.search(r'(?<!\d)800\s*bighas\b',text,re.I):errors.append('Outdated claim: 800 bighas')
+        # Hard block for readiness, superlatives and unsubstantiated connectivity claims.
+        if re.search(r'\b(?:ready\s+(?:now|for\s+(?:occupancy|use|possession))|immediate(?:ly)?\s+(?:available|operational|occupancy|possession)|move[-\s]?in\s+ready|fully\s+operational|ready\s+to\s+(?:use|build|operate))\b',text,re.I):
+            errors.append('Unsupported immediate-readiness or operational claim')
+        if re.search(r'\b(?:prime\s+industrial\s+land|seamless\s+connectivity|ideal\s+for\s+(?:every|all)\s+business(?:es)?)\b',text,re.I):
+            errors.append('Unsubstantiated superlative or suitability claim')
+        if re.search(r'\b1,?000\s*bighas\b',text,re.I) and not re.search(r'\b1,?000\s*bighas\s+(?:currently\s+)?under\s+development\b',text,re.I):
+            errors.append('1,000 bighas must be explicitly described as under development')
+        if re.search(r'\b2,?500\+?\s*bighas\b',text,re.I) and not re.search(r'(?:2,?500\+?\s*bighas\s+(?:of\s+)?planned\s+expansion|(?:planned\s+)?expansion\s+(?:plan\s+(?:of|for)\s+)?2,?500\+?\s*bighas|2,?500\+?\s*bighas\s+planned\s+(?:for\s+)?(?:future\s+)?(?:growth|expansion))',text,re.I):
+            errors.append('2,500+ bighas must be explicitly linked to planned expansion')
+
         if re.search(r'\b(operational|completed|already open)\s+(fuel|cng|ev charging|hotel|restaurant|weighbridge)',text,re.I):errors.append('Unverified operational facility')
         if re.search(r'\b(guaranteed returns|100\s*%\s*roi|assured appreciation)\b',text,re.I):errors.append('Unsubstantiated financial claim')
         if re.search(r'\b2500\+?\s*bighas\b|\b2,500\+?\s*bighas\b',text,re.I) and 'plan' not in text.lower() and 'expansion' not in text.lower():errors.append('Expansion not identified as planned')
@@ -229,5 +247,5 @@ def render_card(candidate,path,kind=0):
     return path
 
 
-from creative_renderer_v07 import render_card_v07
-render_card = render_card_v07
+from brand_renderer_v14 import render_card_v14
+render_card = render_card_v14

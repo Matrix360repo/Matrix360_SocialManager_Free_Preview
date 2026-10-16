@@ -3,11 +3,16 @@ on:
   push:
     branches:
       - stabilization/oct19-security-tests
+      - feature/oct16-lakhotia-brand-compliance
   pull_request:
     paths:
       - 'security_roles.py'
       - 'campaign_studio_poc.py'
       - 'app.py'
+      - 'engine.py'
+      - 'brand_renderer_v14.py'
+      - 'visual_layouts_v12.py'
+      - 'tools/build_brand_previews.py'
       - 'review_addon.py'
       - 'revision_agent.py'
       - 'cloud_start.py'
@@ -22,5 +27,14 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py
+      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_renderer_v14.py visual_layouts_v12.py
       - run: python -m unittest discover -s tests -v
+      - name: Render v1.4 Lakhotia visual acceptance samples
+        run: python tools/build_brand_previews.py
+      - name: Upload review-only PNG proofs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lakhotia-v14-creative-previews
+          path: artifacts/brand_previews/*.png
+          if-no-files-found: error
+          retention-days: 7
