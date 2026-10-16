@@ -18,6 +18,7 @@ on:
       - 'brand_asset_studio.py'
       - 'reference_image_lab.py'
       - 'director_demo.py'
+      - 'director_ai_studio.py'
       - 'reference_grid.py'
       - 'reference_persistence.py director_demo.py'
       - 'reference_gallery_v2.py'
