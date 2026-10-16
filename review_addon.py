@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 from fastapi import APIRouter, Form, HTTPException
+from security_roles import director_required
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, RedirectResponse
 
 router=APIRouter()
@@ -53,6 +54,7 @@ def review_state(draft_id:str):
 
 @router.post('/api/review-v2/{draft_id}/{option}/decision')
 def review_decision(draft_id:str,option:int,action:str=Form(...),reviewer:str=Form(...),feedback:str=Form('')):
+    if action=='approved': reviewer=director_required()
     if action not in ('approved','rejected','revision_requested'):raise HTTPException(422,'Unknown action')
     if not 2<=len(reviewer.strip())<=100:raise HTTPException(422,'Reviewer must have 2–100 characters')
     if len(feedback)>3000:raise HTTPException(422,'Feedback too long')
@@ -78,6 +80,7 @@ def review_decision(draft_id:str,option:int,action:str=Form(...),reviewer:str=Fo
 
 @router.get('/api/review-v2/{draft_id}/{option}/download')
 def individual_download(draft_id:str,option:int):
+    director_required()
     with connect() as db:
         row=draft(db,draft_id);option_check(row,option);ensure_records(db,draft_id)
         state=db.execute('SELECT status FROM creative_reviews WHERE draft_id=? AND option_no=?',(draft_id,option)).fetchone()
@@ -88,6 +91,7 @@ def individual_download(draft_id:str,option:int):
 
 @router.get('/api/review-v2/{draft_id}/{option}/package')
 def individual_package(draft_id:str,option:int):
+    director_required()
     with connect() as db:
         row=draft(db,draft_id);option_check(row,option);ensure_records(db,draft_id)
         state=db.execute('SELECT status,reviewer FROM creative_reviews WHERE draft_id=? AND option_no=?',(draft_id,option)).fetchone()
@@ -98,7 +102,7 @@ def individual_package(draft_id:str,option:int):
     candidates=json.loads(row['payload'])
     candidate=next((x for x in candidates if int(x.get('option',-1))==option),None)
     if candidate is None:raise HTTPException(404,'Candidate not found')
-    manifest={'draft_id':draft_id,'option':option,'topic':row['topic'],'approved_by_self_declared_reviewer':state['reviewer'],'content':candidate,'history':events,'source':'local prototype; independent authentication not yet implemented'}
+    manifest={'draft_id':draft_id,'option':option,'topic':row['topic'],'approved_by_authenticated_director':state['reviewer'],'content':candidate,'history':events,'source':'controlled pilot; authenticated director required for approval and export'}
     buf=io.BytesIO()
     with zipfile.ZipFile(buf,'w',zipfile.ZIP_DEFLATED) as z:
         z.write(file,'creative.png');z.writestr('campaign.json',json.dumps(manifest,ensure_ascii=False,indent=2));z.writestr('caption.txt',candidate.get('caption',''))
