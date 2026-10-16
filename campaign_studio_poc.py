@@ -76,6 +76,28 @@ def tracked_cta(campaign_id:str):
     record_visit(campaign_id)
     return RedirectResponse(target,status_code=302)
 
+
+@router.post('/campaign-studio/create')
+def create_from_studio(topic:str=Form(...),objective:str=Form('Consultation enquiries'),
+                       platform:str=Form('Instagram'),provider:str=Form('offline')):
+    """Browser-facing generation: reuse the validated /api/generate pipeline, then
+    redirect to review rather than printing JSON. Preserve API clients unchanged.
+    """
+    if platform not in CHANNELS or objective not in OBJECTIVES:
+        raise HTTPException(422,'Invalid campaign selection')
+    if provider not in ('offline','openai'):
+        raise HTTPException(422,'Unsupported studio provider')
+    # Runtime import avoids an import cycle while reusing the single generation
+    # and persistence implementation.
+    from app import generate
+    result=generate(topic=topic,objective=objective,platform=platform,provider=provider)
+    draft_id=result['id']
+    from uuid import UUID
+    try: UUID(draft_id)
+    except (ValueError,TypeError) as exc:
+        raise HTTPException(502,'Generation did not return a valid draft ID') from exc
+    return RedirectResponse('/draft/'+draft_id,status_code=303)
+
 @router.get('/campaign-studio',response_class=HTMLResponse)
 def studio():
     ai=get_ai_config()
@@ -91,8 +113,8 @@ def studio():
     small{color:#64786b}a{color:#0e6a55}
     </style></head><body><header><h1>Matrix 360 — Lakhotia Campaign Studio</h1><p>Working POC · Draft, storyboard and measurable consultation CTA · No publishing</p></header><main>
     <div class="panel"><h2>1. Generate branded creative concepts</h2>
-    <p>Current configured provider: <b>'''+escape(provider)+'''</b>. Offline mode works while the AI key is being repaired.</p>
-    <form action="/api/generate" method="post"><label>Campaign topic <input name="topic" value="Industrial expansion planning" required></label>
+    <p>Current configured provider: <b>'''+escape(provider)+'''</b>. Choose offline for a reproducible demonstration or OpenAI for live generation.</p>
+    <form action="/campaign-studio/create" method="post"><label>Campaign topic <input name="topic" value="Industrial expansion planning" required></label>
     <label>Objective <select name="objective"><option>Consultation enquiries</option><option>Awareness</option><option>Thought leadership</option></select></label>
     <label>Channel <select name="platform"><option>Instagram</option><option>LinkedIn</option></select></label>
     <label>Generator <select name="provider"><option value="offline">Offline — no API key needed</option><option value="openai">OpenAI — once key is fixed</option></select></label>
