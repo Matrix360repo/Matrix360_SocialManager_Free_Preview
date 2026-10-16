@@ -218,3 +218,7 @@ app.include_router(reference_gallery_router)
 # October 16 integrated Director campaign acceptance demonstration.
 from director_demo import router as director_demo_router
 app.include_router(director_demo_router)
+
+# Director-triggered AI text ideation and review; no image mutation or publishing.
+from director_ai_studio import router as director_ai_studio_router
+app.include_router(director_ai_studio_router)
