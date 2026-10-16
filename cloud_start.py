@@ -9,6 +9,9 @@ def prepare():
     secret=os.getenv('MATRIX360_API_KEY','').strip()
     if len(secret)<32 or secret=='REPLACE_WITH_A_LONG_RANDOM_SECRET':
         sys.exit('ERROR: MATRIX360_API_KEY must be a random secret of at least 32 characters')
+    director=os.getenv('MATRIX360_DIRECTOR_KEY','').strip()
+    if len(director)<32 or director==secret:
+        sys.exit('ERROR: distinct MATRIX360_DIRECTOR_KEY (32+ characters) required')
     if os.getenv('MATRIX360_FREE_PREVIEW') == '1':
         # Free Render instances have no persistent filesystem. This is explicitly
         # disposable test data, NOT a durable approvals workflow.
