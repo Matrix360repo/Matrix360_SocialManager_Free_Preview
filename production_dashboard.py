@@ -79,7 +79,9 @@ const names=['Instagram','Facebook','LinkedIn','X-Twitter'];
 function postUrl(option,channel){return '/api/production-media/'+enc(current.id)+'/'+enc(channel)+'/'+option+'.png'}
 function reelUrl(option){return '/api/production-media/'+enc(current.id)+'/reel/'+option+'/video.mp4'}
 async function review(option,kind,decision){
- const note=decision==='revision_requested'?prompt('Required revision (mandatory):'):(decision==='rejected'?prompt('Rejection reason (optional):',''):'');
+ const flagged=decision==='approved'&&!(current.checks?.[option-1]?.passed);
+ const note=flagged?prompt('Automated claims screening flagged this creative. To approve, enter: Director factual sign-off: [your verification and rationale]'):
+  decision==='revision_requested'?prompt('Required revision (mandatory):'):(decision==='rejected'?prompt('Rejection reason (optional):',''):'');
  if(note===null)return;
  try{const body=new URLSearchParams({decision,note:note||''});
  let endpoint=kind==='Reel'?'/api/director-demo/ai/batches/'+enc(current.id)+'/reels/'+option+'/decision':
