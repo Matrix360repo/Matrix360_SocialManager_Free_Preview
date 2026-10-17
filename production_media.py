@@ -134,17 +134,36 @@ def generate_one_image(batch_id,idx,candidate):
             return
         api_key=os.getenv('OPENAI_API_KEY','').strip()
         if not api_key:raise RuntimeError('OPENAI_API_KEY missing for real image generation')
+        from image_quality import inspect_photo
         client=OpenAI(api_key=api_key,timeout=110,max_retries=1)
-        response=client.images.generate(model=os.getenv('MATRIX_IMAGE_MODEL','gpt-image-1-mini'),
-                prompt=visual_prompt(candidate,idx),size='1024x1536',quality='medium',n=1)
-        encoded=response.data[0].b64_json
-        if not encoded:raise RuntimeError('Image generation returned no binary')
-        raw=base64.b64decode(encoded)
-        with Image.open(io.BytesIO(raw)) as im:
-            im.verify()
-        path=f'{batch_id}/image/{idx}.png'
-        upload_media(path,raw,'image/png')
-        set_record(batch_id,idx,'image','completed',object_path=path)
+        prompt=visual_prompt(candidate,idx)
+        failures=[]
+        for attempt in range(3):
+            if failures:
+                prompt=visual_prompt(candidate,idx)+(
+                   ' CRITICAL PROFESSIONAL RETOUCH QA: previous output was '
+                   'rejected for: '+'. '.join(failures[-3:])+
+                   '. Change composition and subject to remove these defects.')
+            response=client.images.generate(
+                model=os.getenv('MATRIX_IMAGE_MODEL','gpt-image-1-mini'),
+                prompt=prompt,size='1024x1536',quality='medium',n=1)
+            encoded=response.data[0].b64_json
+            if not encoded:raise RuntimeError('Image generator returned no image bytes')
+            raw=base64.b64decode(encoded)
+            with Image.open(io.BytesIO(raw)) as image:
+                image.verify()
+            check=inspect_photo(client,raw,idx)
+            if check['approved']:
+                path=f'{batch_id}/image/{idx}.png'
+                upload_media(path,raw,'image/png')
+                remote=download_media(path)
+                import hashlib
+                if hashlib.sha256(remote).digest()!=hashlib.sha256(raw).digest():
+                    raise RuntimeError('Photo backup checksum mismatch')
+                set_record(batch_id,idx,'image','completed',object_path=path)
+                return
+            failures.extend(check['issues'] or ['Photographic realism standards not met'])
+        raise RuntimeError('AI photo failed quality screen after three independent attempts')
     except Exception as exc:
         try:set_record(batch_id,idx,'image','failed',error=type(exc).__name__+': '+str(exc)[:100])
         except Exception:pass
@@ -348,6 +367,32 @@ def retry_video(batch_id:str,option:int):
             with GUARD:ACTIVE.discard(batch_id)
     threading.Thread(target=retry,daemon=True,name='retry-motion-'+str(option)).start()
     return {'status':'queued','provider':'ffmpeg_tts_motion_v1'}
+
+@router.post('/api/production-media/{batch_id}/post/{option}/regenerate')
+def regenerate_photo(batch_id:str,option:int):
+    director_required()
+    if option not in (2,3):
+        raise HTTPException(409,'Approved architectural gate is immutable')
+    batch=batch_data(batch_id)
+    if (batch.get('reviews',{}).get(str(option),{})
+            .get('decision')=='approved'):
+        raise HTTPException(409,'Approved creative cannot be changed; request revision first')
+    with GUARD:
+        if batch_id in ACTIVE:
+            raise HTTPException(409,'A render is already running for this campaign')
+        ACTIVE.add(batch_id)
+    def work():
+        try:
+            generate_one_image(batch_id,option,batch['candidates'][option-1])
+            # Mark dependent motion media as needing a re-render if source changed.
+            row=media_record(batch_id,option,'image')
+            if row and row.get('status')=='completed':
+                set_record(batch_id,option,'video','queued')
+        finally:
+            with GUARD:ACTIVE.discard(batch_id)
+    threading.Thread(target=work,daemon=True,
+        name='image-review-retry-'+str(option)).start()
+    return {'status':'queued','photographic_qa':'required','option':option}
 
 @router.get('/api/production-media/{batch_id}/reel/{option}/download.mp4')
 def save_reel(batch_id:str,option:int):
