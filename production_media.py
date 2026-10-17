@@ -1,0 +1,252 @@
+"""Production-only AI images and Sora motion-video rendering.
+
+Every background comes from a real provider request. No fallback photos,
+template illustrations, dummy files, or poster-motion videos. All media is
+private in Supabase Storage, served only to authenticated application users.
+"""
+import base64
+import io
+import json
+import os
+import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from urllib.request import Request,urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from PIL import Image,ImageDraw,ImageFont,ImageOps
+from fastapi import APIRouter,HTTPException
+from fastapi.responses import Response
+from openai import OpenAI
+from security_roles import director_required
+import durable_campaign_store as db
+
+router=APIRouter()
+BUCKET='matrix360-campaign-media'
+SIZES={'Instagram':(1080,1350),'Facebook':(1200,630),'LinkedIn':(1200,627),'X-Twitter':(1600,900)}
+FONTS=('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
+ACTIVE=set()
+GUARD=threading.Lock()
+
+def auth_config():
+    from reference_persistence import settings
+    cfg=settings()
+    if cfg is None:raise RuntimeError('Supabase private media storage unavailable')
+    return cfg[0],cfg[2]
+
+def media_record(batch_id,option,kind):
+    rows=db.api('media','GET','select=*&batch_id=eq.'+quote(batch_id)+'&option_no=eq.'+str(option)+'&kind=eq.'+kind)
+    return rows[0] if rows else None
+
+def set_record(batch_id,option,kind,status,object_path=None,provider_job_id=None,error=None):
+    payload={'batch_id':batch_id,'option_no':option,'kind':kind,'status':status,
+             'object_path':object_path,'provider_job_id':provider_job_id,
+             'error_message':(str(error)[:210] if error else None)}
+    db.api('media','POST','on_conflict=batch_id,option_no,kind',payload=[payload],
+           prefer='resolution=merge-duplicates,return=minimal')
+
+def upload_media(path,raw,mimetype):
+    if not raw:raise RuntimeError('Empty AI media asset rejected')
+    url,key=auth_config()
+    endpoint=url+'/storage/v1/object/'+BUCKET+'/'+path
+    req=Request(endpoint,data=raw,method='POST',headers={
+        'apikey':key,'Authorization':'Bearer '+key,'Content-Type':mimetype,
+        'x-upsert':'true'})
+    try:
+        with urlopen(req,timeout=90) as resp:resp.read()
+    except HTTPError as err:
+        raise RuntimeError('Private media upload HTTP '+str(err.code)) from None
+
+def download_media(path):
+    if not path or not re.fullmatch(r'[0-9a-f-]{36}/(?:image|video)/[1-3]\.(?:png|mp4)',path):
+        raise HTTPException(404,'Unknown media object')
+    url,key=auth_config()
+    req=Request(url+'/storage/v1/object/'+BUCKET+'/'+path,
+          headers={'apikey':key,'Authorization':'Bearer '+key})
+    try:
+        with urlopen(req,timeout=45) as resp:
+            data=resp.read(105*1024*1024)
+    except HTTPError as err:
+        raise HTTPException(502,'Private media storage HTTP '+str(err.code)) from None
+    if not data:raise HTTPException(502,'Empty stored file')
+    return data
+
+def visual_prompt(candidate,index):
+    scene=str(candidate.get('creative_guidance',''))[:1200]
+    desc=str(candidate.get('headline',''))[:150]
+    settings=[
+      'Photoreal editorial documentary close-up of precision manufacturing: detailed machining tooling, technicians hands at equipment, industrial material textures; authentic factory environment and visible physical activity',
+      'Photoreal wide scene inside a generic modern warehouse: rows of stored goods, dock loading and transport preparation, natural architecture and realistic industrial scale',
+      'Photoreal business-planning meeting: professionals reviewing actual-looking logistics planning sketches and land requirements on a table, editorial corporate photography, natural Indian context'
+    ]
+    return ('Create a sophisticated high-end COMMERCIAL PHOTOGRAPHIC BACKGROUND for a social campaign about industrial land planning, Lakhotia Industrial Complex, West Bengal. '
+       'Make this image visually unique and a completely different photographic subject from the other campaigns. '
+       'Scene: '+settings[index-1]+'. Creative copy context: '+desc+'. Art direction: '+scene+'. '
+       'Image must be a realistic generic illustrative industry context, not a claim or photograph of the Lakhotia project. '
+       'DO NOT show or recreate the specific Lakhotia architectural gate, branded buildings, fuel/CNG facilities, office site or any false project amenities. '
+       'No text, signs, logos, numbers, diagrams, watermarks, banners or captions in generated image. '
+       'No misleading master-plan imagery. Photographic realism, strong composition and lighting, room for separately typeset marketing copy.')
+
+def generate_one_image(batch_id,idx,candidate):
+    try:
+        set_record(batch_id,idx,'image','processing')
+        api_key=os.getenv('OPENAI_API_KEY','').strip()
+        if not api_key:raise RuntimeError('OPENAI_API_KEY missing for real image generation')
+        client=OpenAI(api_key=api_key,timeout=110,max_retries=1)
+        response=client.images.generate(model=os.getenv('MATRIX_IMAGE_MODEL','gpt-image-1-mini'),
+                prompt=visual_prompt(candidate,idx),size='1024x1536',quality='medium',n=1)
+        encoded=response.data[0].b64_json
+        if not encoded:raise RuntimeError('Image generation returned no binary')
+        raw=base64.b64decode(encoded)
+        with Image.open(io.BytesIO(raw)) as im:
+            im.verify()
+        path=f'{batch_id}/image/{idx}.png'
+        upload_media(path,raw,'image/png')
+        set_record(batch_id,idx,'image','completed',object_path=path)
+    except Exception as exc:
+        try:set_record(batch_id,idx,'image','failed',error=type(exc).__name__+': '+str(exc)[:100])
+        except Exception:pass
+
+def video_prompt(spec):
+    prompt=str(spec.get('video_prompt','')).strip()[:1800]
+    if len(prompt)<30:raise RuntimeError('AI reel prompt missing')
+    return (prompt+'\nGENUINE MOTION VIDEO: changing camera position, moving industrial machinery, trucks in motion, or physical human planning actions. '
+      'No posters, static slideshows, zoom effects, animated still photos. '
+      'All industry scenes generic illustrative footage, never misrepresent as the real Lakhotia Industrial Complex. '
+      'Never show or reconstruct specific Lakhotia gate, site layout or invented site structures. '
+      'No typography or logos; brand identity is layered separately in application after render.')
+
+def create_one_video(batch_id,idx,reel):
+    try:
+        set_record(batch_id,idx,'video','processing')
+        key=os.getenv('OPENAI_API_KEY','').strip()
+        if not key:raise RuntimeError('OPENAI_API_KEY missing for Sora motion rendering')
+        client=OpenAI(api_key=key,timeout=45,max_retries=0)
+        job=client.videos.create(model=os.getenv('MATRIX_VIDEO_MODEL','sora-2'),
+             prompt=video_prompt(reel),size='720x1280',seconds='8')
+        if not getattr(job,'id',None):raise RuntimeError('Video provider did not return job id')
+        set_record(batch_id,idx,'video','processing',provider_job_id=job.id)
+    except Exception as exc:
+        try:set_record(batch_id,idx,'video','failed',error=type(exc).__name__+': '+str(exc)[:100])
+        except Exception:pass
+
+def _worker(batch_id,concepts,reels):
+    try:
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            results=[pool.submit(generate_one_image,batch_id,i,c) for i,c in enumerate(concepts,1)]
+            # Begin actual motion-video jobs separately so they do not wait on image generation.
+            for i,r in enumerate(reels,1):
+                create_one_video(batch_id,i,r)
+            for future in results:future.result()
+    finally:
+        with GUARD:ACTIVE.discard(batch_id)
+
+def launch(batch_id,concepts,reels):
+    if len(concepts)!=3 or len(reels)!=3:raise ValueError('Three AI post and reel concepts required')
+    with GUARD:
+        if batch_id in ACTIVE:return
+        ACTIVE.add(batch_id)
+    t=threading.Thread(target=_worker,args=(batch_id,concepts,reels),daemon=True,name='ai-campaign-'+batch_id[:8])
+    t.start()
+
+def batch_data(batch_id):
+    import director_ai_studio as studio
+    data=studio.batch_detail(batch_id)
+    if 'reels' not in data or len(data['reels'])!=3:raise HTTPException(409,'Batch has no model-generated reels')
+    return data
+
+def progress(batch_id):
+    batch_data(batch_id)
+    status={}
+    for kind in ('image','video'):
+        status[kind]=[media_record(batch_id,i,kind) or {'status':'queued','option_no':i} for i in (1,2,3)]
+    return status
+
+@router.get('/api/production-media/{batch_id}/status')
+def status(batch_id:str):
+    return progress(batch_id)
+
+@router.get('/api/production-media/{batch_id}/{platform}/{option}.png')
+def preview_post(batch_id:str,platform:str,option:int):
+    if platform not in SIZES or option not in (1,2,3):raise HTTPException(404,'Unknown format')
+    batch=batch_data(batch_id)
+    row=media_record(batch_id,option,'image')
+    if not row or row['status']!='completed':raise HTTPException(409,'AI image is not rendered')
+    raw=download_media(row['object_path'])
+    return Response(composite(raw,batch['candidates'][option-1],platform),media_type='image/png',
+        headers={'Content-Disposition':f'attachment; filename="lakhotia-{platform}-ai-{option}.png"','Cache-Control':'private, no-store'})
+
+def composite(raw,candidate,platform):
+    w,h=SIZES[platform]
+    with Image.open(io.BytesIO(raw)) as original:
+        image=ImageOps.fit(original.convert('RGB'),(w,h),method=Image.Resampling.LANCZOS,centering=(.5,.45))
+    overlay=Image.new('RGBA',(w,h),(0,0,0,0))
+    d=ImageDraw.Draw(overlay)
+    d.rectangle((0,int(h*.57),w,h),fill=(3,32,29,225))
+    d.rectangle((0,0,w,int(h*.15)),fill=(2,34,30,210))
+    size=lambda pt: ImageFont.truetype(FONTS[1],int(pt))
+    title=str(candidate.get('headline',''))[:70]
+    sub=str(candidate.get('subheadline',''))[:100]
+    d.text((w*.055,h*.038),'LAKHOTIA INDUSTRIAL COMPLEX',font=size(min(w*.023,h*.040)),fill='#ffffff')
+    y=int(h*.624)
+    for line in wrap(d,title,size(min(w*.044,h*.072)),int(w*.87))[:3]:
+        d.text((int(w*.055),y),line,font=size(min(w*.044,h*.072)),fill='#ffffff')
+        y+=int(min(w*.054,h*.085))
+    for line in wrap(d,sub,size(min(w*.018,h*.029)),int(w*.90))[:2]:
+        d.text((int(w*.055),y+10),line,font=size(min(w*.018,h*.029)),fill='#f3d2b1')
+        y+=int(min(w*.028,h*.04))
+    f=size(min(w*.015,h*.025))
+    d.text((w*.055,h*.941),'+91 74500 08999  |  lakhotiaindustrialcomplex.com',font=f,fill='#ffffff')
+    d.text((w*.055,h*.17),'ILLUSTRATIVE INDUSTRY PHOTOGRAPHY',font=size(min(w*.010,h*.019)),fill='#ffffff')
+    image=Image.alpha_composite(image.convert('RGBA'),overlay).convert('RGB')
+    out=io.BytesIO()
+    image.save(out,format='PNG',optimize=True)
+    return out.getvalue()
+
+def wrap(draw,text,font,max_width):
+    lines=[];part=''
+    for word in text.split():
+        trial=(part+' '+word).strip()
+        if part and draw.textbbox((0,0),trial,font=font)[2]>max_width:
+            lines.append(part);part=word
+        else:part=trial
+    if part:lines.append(part)
+    return lines
+
+@router.get('/api/production-media/{batch_id}/reel/{option}/video.mp4')
+def downloadable_reel(batch_id:str,option:int):
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    batch_data(batch_id)
+    row=media_record(batch_id,option,'video')
+    if not row or row['status']!='completed':raise HTTPException(409,'Reel has not finished rendering')
+    return Response(download_media(row['object_path']),media_type='video/mp4',
+        headers={'Content-Disposition':f'inline; filename="lakhotia-reel-{option}.mp4"',
+                 'Cache-Control':'private, no-store','Accept-Ranges':'none'})
+
+@router.post('/api/production-media/{batch_id}/reel/{option}/refresh')
+def refresh_video(batch_id:str,option:int):
+    director_required()
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    batch_data(batch_id)
+    row=media_record(batch_id,option,'video')
+    if not row:raise HTTPException(404,'Video job not found')
+    if row['status'] in ('completed','failed'):return row
+    jobid=row.get('provider_job_id')
+    if not jobid:raise HTTPException(409,'Video job is initializing')
+    key=os.getenv('OPENAI_API_KEY','')
+    if not key:raise HTTPException(503,'Video provider not configured')
+    try:
+        client=OpenAI(api_key=key,timeout=100,max_retries=0)
+        job=client.videos.retrieve(jobid)
+        if job.status=='completed':
+            blob=client.videos.download_content(jobid)
+            raw=blob.read()
+            if len(raw)<2048 or raw[4:8]!=b'ftyp':raise RuntimeError('Provider returned invalid MP4')
+            path=f'{batch_id}/video/{option}.mp4'
+            upload_media(path,raw,'video/mp4')
+            set_record(batch_id,option,'video','completed',object_path=path,provider_job_id=jobid)
+        elif job.status in ('failed','cancelled','expired'):
+            set_record(batch_id,option,'video','failed',provider_job_id=jobid,error='Video provider reported '+job.status)
+    except Exception as exc:
+        raise HTTPException(502,'Video retrieval failed: '+type(exc).__name__) from None
+    return media_record(batch_id,option,'video')

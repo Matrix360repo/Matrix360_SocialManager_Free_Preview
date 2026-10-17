@@ -51,11 +51,15 @@ class AiStudioTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp,patch.object(grid,'DB',Path(tmp)/'pilot.sqlite3'),patch.object(
                 ai,'verified_master',return_value=b'master'),patch.object(ai,'get_ai_config',return_value={
                     'provider':'openai','model':'mock-model','key':'not-real'}),patch.object(
-                ai,'create',return_value=([dict(candidate(),option=i,headline='Planning angle '+str(i)) for i in (1,2,3)],'openai_api')):
+                ai,'create',return_value=([dict(candidate(),option=i,headline='Planning angle '+str(i)) for i in (1,2,3)],'openai_api')),patch.object(
+                ai,'real_reel_concepts',return_value=[{'option':i,'headline':'Distinct Reel '+str(i),'video_prompt':'Generic moving industrial footage with real camera motion and cinematic activity number '+str(i)*45,'caption':'Illustrative industry footage'} for i in (1,2,3)]),patch(
+                'production_media.launch') as launch:
                 result=ai.create_ai_batch('Create three new approaches for industry','Manufacturing businesses',
                                         'Awareness','Instagram','openai')
                 self.assertEqual(result['provider'],'openai_api')
                 self.assertEqual(len(result['candidates']),3)
+                self.assertEqual(len(result['reels']),3)
+                launch.assert_called_once()
                 self.assertEqual(result['publication_status'],'blocked')
                 saved=ai.batch_detail(result['id'])
                 self.assertEqual(len(saved['checks']),3)
@@ -116,7 +120,8 @@ class AiStudioTests(unittest.TestCase):
                 'checks':[{'passed':True}]*3}}
         with patch.object(ai.durable,'is_configured',return_value=True),patch.object(
             ai.durable,'get_batch',return_value=record),patch.object(
-            ai.durable,'get_reviews',return_value=[{'option_no':1,'decision':'approved','note':''}]):
+            ai.durable,'get_reviews',return_value=[{'option_no':1,'decision':'approved','note':''}]),patch.object(
+            ai.durable,'reel_reviews',return_value=[]):
             loaded=ai.batch_detail(record['id'])
         self.assertTrue(loaded['durable'])
         self.assertEqual(loaded['reviews']['1']['decision'],'approved')

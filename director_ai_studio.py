@@ -72,6 +72,40 @@ def strict_check(candidate):
     if len(str(candidate.get('headline','')))>70:reasons.append('Headline too long')
     return {'passed':not reasons,'issues':reasons,'human_approval_required':True}
 
+def real_reel_concepts(cfg,brief,concepts):
+    """Second real model call: three independent cinematographic video concepts."""
+    import urllib.request
+    payload={'model':cfg['model'],'temperature':0.65,'response_format':{'type':'json_object'},
+      'messages':[{'role':'system','content':(
+       'You are a premium industrial B2B film director. Return JSON object with '
+       'reels array of EXACTLY 3 objects. Each must include headline, video_prompt, '
+       'caption, platform. Video prompts must describe ACTUAL MOVING live-action '
+       'generic industry footage with distinct visual subjects and camera moves. '
+       'No static posters, slideshow, pan/zoom of images or invented Lakhotia '
+       'construction, no real site representation, no logos in model footage. '
+       'Each video_prompt 80-300 words and distinct from the other two. '
+       'Do not claim project facilities are complete; mark scenes illustrative.'
+       )},
+       {'role':'user','content':json.dumps({'brief':brief,'related_social_concepts':[
+         {'headline':c['headline'],'pillar':c['pillar']} for c in concepts],
+         'approved_facts':SAFE_SOURCE})}]}
+    req=urllib.request.Request(cfg['endpoint'],data=json.dumps(payload).encode(),
+      headers={'Authorization':'Bearer '+cfg['key'],'Content-Type':'application/json'},method='POST')
+    try:
+        with urllib.request.urlopen(req,timeout=40) as resp:
+            raw=json.load(resp)
+        reels=json.loads(raw['choices'][0]['message']['content'])['reels']
+    except Exception:
+        raise HTTPException(502,'Video concept AI provider failed; no substitute reels created') from None
+    if (not isinstance(reels,list) or len(reels)!=3 or
+        any(not isinstance(x,dict) or not 120<len(x.get('video_prompt',''))<2500 or
+                not x.get('headline') for x in reels)):
+        raise HTTPException(502,'Video AI provider did not return three complete motion concepts')
+    if len({x['video_prompt'].lower().strip() for x in reels})!=3:
+        raise HTTPException(502,'Video AI repeated a concept')
+    for i,x in enumerate(reels,1):x['option']=i
+    return reels
+
 def create_ai_batch(brief,audience,objective,platform,provider):
     director_required()
     if not 15<=len(brief.strip())<=900:
@@ -115,12 +149,13 @@ def create_ai_batch(brief,audience,objective,platform,provider):
         issues=list(dict.fromkeys(common[i]['issues']+strict['issues']))
         reviewed.append({'option':i+1,'passed':not issues,'issues':issues,
                          'human_approval_required':True})
+    reels=real_reel_concepts(cfg,brief,concepts)
     ident=str(uuid.uuid4())
     timestamp=datetime.now(timezone.utc).isoformat()
     if durable.is_configured():
         try:
             durable.save_batch(ident,timestamp,brief.strip(),used,cfg['model'],
-                {'candidates':concepts,'checks':reviewed})
+                {'candidates':concepts,'checks':reviewed,'reels':reels})
         except durable.CampaignStoreError as exc:
             raise HTTPException(503,str(exc)) from None
     with connect() as db:
@@ -128,7 +163,9 @@ def create_ai_batch(brief,audience,objective,platform,provider):
           (ident,timestamp,brief.strip(),used,cfg['model'],
            json.dumps({'candidates':concepts,'checks':reviewed},ensure_ascii=False)))
         db.commit()
-    return {'id':ident,'provider':used,'model':cfg['model'],'candidates':concepts,
+    from production_media import launch
+    launch(ident,concepts,reels)
+    return {'id':ident,'provider':used,'model':cfg['model'],'candidates':concepts,'reels':reels,
             'checks':reviewed,'publication_status':'blocked','archival_scope':'private_supabase' if durable.is_configured() else 'ephemeral_demo'}
 
 @router.post('/api/director-demo/ai/generate')
@@ -154,11 +191,13 @@ def batch_detail(batch_id:str):
         try:
             row=durable.get_batch(ident)
             decisions=durable.get_reviews(ident) if row else []
+            reel_decisions=durable.reel_reviews(ident) if row else []
         except durable.CampaignStoreError as exc:
             raise HTTPException(503,str(exc)) from None
         if row is None:raise HTTPException(404,'Unknown campaign batch')
         return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
                 **row['payload'],'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
+                'reel_reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in reel_decisions},
                 'publishing':'disabled','durable':True}
     with connect() as db:
         row=db.execute('SELECT * FROM ai_campaign_batches WHERE id=?',(ident,)).fetchone()
@@ -197,3 +236,24 @@ def decide(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
         db.commit()
     return {'batch_id':batch_id,'option':option,'decision':decision,
             'publication_authorized':False,'reviewer':'Director'}
+
+@router.post('/api/director-demo/ai/batches/{batch_id}/reels/{option}/decision')
+def decide_reel(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
+    director_required()
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    if decision not in ('approved','rejected','revision_requested'):
+        raise HTTPException(422,'Unknown review action')
+    if len(note)>500 or (decision=='revision_requested' and not note.strip()):
+        raise HTTPException(422,'Revision request requires a note')
+    data=batch_detail(batch_id)
+    if len(data.get('reels',[]))!=3:
+        raise HTTPException(409,'No generated reel found in this batch')
+    if decision=='approved' and not data['checks'][option-1]['passed']:
+        raise HTTPException(409,'Compliance issues prevent approval; request revision first')
+    if not durable.is_configured():
+        raise HTTPException(503,'Private durable approvals must be configured')
+    now=datetime.now(timezone.utc).isoformat()
+    try:durable.save_reel_decision(batch_id,option,decision,note.strip(),now)
+    except durable.CampaignStoreError as exc:raise HTTPException(503,str(exc)) from None
+    return {'option':option,'kind':'reel','decision':decision,'reviewer':'Director',
+            'publication_authorized':False,'persisted':True}

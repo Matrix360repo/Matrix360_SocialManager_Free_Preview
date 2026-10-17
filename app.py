@@ -226,3 +226,9 @@ app.include_router(director_ai_studio_router)
 # Four-channel real PNG creative previews and downloads; no publishing.
 from social_asset_exports import router as social_exports_router
 app.include_router(social_exports_router)
+
+# Live provider-backed production dashboard and authenticated media assets.
+from production_dashboard import router as production_dashboard_router
+from production_media import router as production_media_router
+app.include_router(production_dashboard_router)
+app.include_router(production_media_router)
