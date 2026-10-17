@@ -127,7 +127,8 @@ def create_ai_batch(brief,audience,objective,platform,provider):
        '\nCreate three genuinely DIFFERENT angles and headlines. Use only these claims: '+SAFE_SOURCE+
        '\nDo not imply construction is complete. Do not describe gates, roads, landscaping or buildings except as an unaltered approved illustrative visual.'+
        '\nAvoid new amenities, facilities, services, price, ROI, rankings or invented numerical claims.'+
-       '\nAll visual guidance must describe layout/typography and use ONLY the checksum-verified official gate image for any site architecture.')
+       '\nFor each concept creative_guidance MUST describe one DISTINCT photorealistic generic industrial/business scene: photographic subject, camera angle, physical activity, atmosphere and framing. The three scenes must differ in subject and storytelling, driven by this campaign brief rather than fixed stock-image categories. Do not use abstract icons, diagrams, illustration layouts or placeholder shapes.'+
+       '\nNever generate, depict or redraw the Lakhotia complex itself. Its official gate is a separate immutable asset and must not be used as a generative reference.')
     # No fallback: failure must be visible, never falsely reported as AI.
     def no_fallback(*args):raise RuntimeError('AI unavailable; no fake generated output')
     try:
@@ -140,6 +141,9 @@ def create_ai_batch(brief,audience,objective,platform,provider):
         raise HTTPException(502,'AI text generation unavailable; no concepts were saved') from exc
     if used not in ('openai_api','groq_api') or len(concepts)!=3:
         raise HTTPException(502,'AI did not deliver three complete concepts')
+    directions=[re.sub(r'\s+',' ',str(c.get('creative_guidance','')).strip().lower()) for c in concepts]
+    if any(len(x)<40 for x in directions) or len(set(directions))!=3:
+        raise HTTPException(502,'AI did not provide three distinct production-ready visual directions')
     common=verify(concepts)
     reviewed=[]
     for i,c in enumerate(concepts):
