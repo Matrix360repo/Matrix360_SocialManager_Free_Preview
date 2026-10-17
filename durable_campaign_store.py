@@ -12,7 +12,8 @@ class CampaignStoreError(RuntimeError):pass
 
 TABLES={'batches':'matrix360_lakhotia_ai_batches',
         'reviews':'matrix360_lakhotia_ai_reviews',
-        'audit':'matrix360_lakhotia_ai_audit'}
+        'audit':'matrix360_lakhotia_ai_audit',
+        'media':'matrix360_lakhotia_ai_media'}
 
 def is_configured():
     return gate_store.settings() is not None
