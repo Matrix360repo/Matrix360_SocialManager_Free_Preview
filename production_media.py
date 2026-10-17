@@ -71,26 +71,67 @@ def download_media(path):
     if not data:raise HTTPException(502,'Empty stored file')
     return data
 
+VISUAL_PILLARS=(
+    'Architecture & Infrastructure',
+    'Human Element & Operations',
+    'Facilities, Utilities & Technology',
+)
+
 def visual_prompt(candidate,index):
-    """Creative subject is authored by the live model, never index-selected."""
-    scene=str(candidate.get('creative_guidance','')).strip()[:1400]
-    desc=str(candidate.get('headline','')).strip()[:150]
-    pillar=str(candidate.get('pillar','')).strip()[:90]
-    if len(scene)<24:
-        raise RuntimeError('AI did not supply usable distinct visual direction')
-    return ('Generate one ORIGINAL premium, realistic commercial PHOTOGRAPH for an industrial business campaign. '
-       'The image must express this unique model-authored campaign direction: '+scene+
-       '. Narrative focus: '+pillar+'. Copy intent: '+desc+'. '
-       'Translate the exact direction into a distinctive photographic subject, camera angle, action, setting, mood, lens and composition. '
-       'Avoid stock-poster layouts. No text, no logos, no signage or watermarks inside the generated photograph. '
-       'This is generic illustrative business or industrial photography; NEVER pretend it is a real photo of the Lakhotia Industrial Complex. '
-       'Never create or alter the official Lakhotia architectural gate, buildings, landscaping, site facilities, development plan or fuel/CNG canopy. '
-       'No imaginary features attributed to Lakhotia. Natural light, credible engineering detail, authentic movement and high editorial visual quality. '
-       'Provide composition space for a separately typeset headline and phone number.')
+    """Nonoverlapping photographic categories; no invented Lakhotia buildings."""
+    if index not in (1,2,3):raise ValueError('Unsupported visual pillar')
+    scene=str(candidate.get('creative_guidance','')).strip()[:1300]
+    desc=str(candidate.get('headline','')).strip()[:130]
+    constraints=(
+       'Use ONLY the externally verified and unmodified Lakhotia gate artwork. '
+       'Do not synthesize a master plan or a project building. This category is '
+       'rendered from the approved original, not sent to generative imaging.',
+       'Show authentic industrial PEOPLE at work: one clearly distinct adult '
+       'professional or, at most, two different adults naturally cooperating. '
+       'One physically coherent human per pose, exactly two arms and hands '
+       'per person, five realistic fingers per visible hand, no mirrored or '
+       'cloned workers, repeated faces, extra limbs, fused fingers, '
+       'photographic cutout seams, duplicate heads or uncanny plastic skin. '
+       'Editorial candid shot of real operational decisions, movement and '
+       'working environment. No children.',
+       'Show a PERSON-FREE close-up of believable generic industrial '
+       'utilities or industrial instrumentation: precisely engineered '
+       'electrical distribution control cabinet, monitoring gauges, '
+       'plumbing or sensor equipment, physical cable conduits and '
+       'warehouse technology. Grounded true-to-life materials and scale. '
+       'No humans, no duplicate equipment, no impossible pipe connections. '
+       'This is CONCEPTUAL illustrative industry technology, NOT a '
+       'depiction of installed Lakhotia utilities.',
+    )
+    return (
+       'Create one original high-end photorealistic advertising photograph. '
+       'PILLAR '+str(index)+' — '+VISUAL_PILLARS[index-1]+'. '
+       'Hard visual constraint: '+constraints[index-1]+'. '
+       'User campaign creative idea (secondary to visual constraint): '+scene+'. '
+       'Headline context: '+desc+'. '
+       'NO typography or text in the actual generated image, NO logos, '
+       'NO signs, posters or gibberish labels, no watermarks. '
+       'Never recreate or alter the approved Lakhotia architectural gate. '
+       'Never attribute conceptual photographed facilities or generic '
+       'workers to Lakhotia, or falsely present them as actual site infrastructure. '
+       'Single coherent photograph, correct perspective, realistic lighting, '
+       'human anatomy and photographic realism. Avoid split-screen collage, '
+       'mirrored subjects, implausible symmetry, random cutouts, unnaturally '
+       'cloned visual subjects, or computer illustration aesthetics.'
+    )
 
 def generate_one_image(batch_id,idx,candidate):
     try:
         set_record(batch_id,idx,'image','processing')
+        if idx==1:
+            # Site-specific architectural visual must be exactly the locked source.
+            from director_demo import verified_master
+            raw=verified_master()
+            with Image.open(io.BytesIO(raw)) as gate:gate.verify()
+            path=f'{batch_id}/image/1.png'
+            upload_media(path,raw,'image/png')
+            set_record(batch_id,idx,'image','completed',object_path=path)
+            return
         api_key=os.getenv('OPENAI_API_KEY','').strip()
         if not api_key:raise RuntimeError('OPENAI_API_KEY missing for real image generation')
         client=OpenAI(api_key=api_key,timeout=110,max_retries=1)
@@ -222,13 +263,21 @@ def preview_post(batch_id:str,platform:str,option:int):
     row=media_record(batch_id,option,'image')
     if not row or row['status']!='completed':raise HTTPException(409,'AI image is not rendered')
     raw=download_media(row['object_path'])
-    return Response(composite(raw,batch['candidates'][option-1],platform),media_type='image/png',
+    return Response(composite(raw,batch['candidates'][option-1],platform,option=option),media_type='image/png',
         headers={'Content-Disposition':f'attachment; filename="lakhotia-{platform}-ai-{option}.png"','Cache-Control':'private, no-store'})
 
-def composite(raw,candidate,platform):
+def composite(raw,candidate,platform,option=2):
     w,h=SIZES[platform]
     with Image.open(io.BytesIO(raw)) as original:
-        image=ImageOps.fit(original.convert('RGB'),(w,h),method=Image.Resampling.LANCZOS,centering=(.5,.45))
+        source=original.convert('RGB')
+        if option==1:
+            image=Image.new('RGB',(w,h),(9,42,36))
+            framed=ImageOps.contain(source,(int(w*.96),int(h*.55)),
+                 method=Image.Resampling.LANCZOS)
+            image.paste(framed,((w-framed.width)//2,int(h*.18)))
+        else:
+            image=ImageOps.fit(source,(w,h),
+                 method=Image.Resampling.LANCZOS,centering=(.5,.45))
     overlay=Image.new('RGBA',(w,h),(0,0,0,0))
     d=ImageDraw.Draw(overlay)
     d.rectangle((0,int(h*.57),w,h),fill=(3,32,29,225))
@@ -246,7 +295,7 @@ def composite(raw,candidate,platform):
         y+=int(min(w*.028,h*.04))
     f=size(min(w*.015,h*.025))
     d.text((w*.055,h*.941),'+91 74500 08999  |  lakhotiaindustrialcomplex.com',font=f,fill='#ffffff')
-    d.text((w*.055,h*.17),'ILLUSTRATIVE INDUSTRY PHOTOGRAPHY',font=size(min(w*.010,h*.019)),fill='#ffffff')
+    d.text((w*.055,h*.17),'APPROVED ARCHITECTURAL GATE · UNALTERED' if option==1 else 'ILLUSTRATIVE INDUSTRY PHOTOGRAPHY',font=size(min(w*.010,h*.019)),fill='#ffffff')
     image=Image.alpha_composite(image.convert('RGBA'),overlay).convert('RGB')
     out=io.BytesIO()
     image.save(out,format='PNG',optimize=True)
