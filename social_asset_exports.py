@@ -179,3 +179,16 @@ def ai_platform_post(batch_id:str,platform:str,option:int):
     if option not in (1,2,3):raise HTTPException(404,'Invalid concept')
     candidate=batch['candidates'][option-1]
     return send(image_bytes(option,platform,candidate['headline'],candidate['subheadline']),platform,option)
+
+@router.get('/api/social-posts/preview/{platform}/{option}.png')
+def preview_platform_post(platform:str,option:int):
+    return Response(image_bytes(option,platform),media_type='image/png',
+                    headers={'Cache-Control':'private, max-age=60'})
+
+@router.get('/api/social-posts/ai-preview/{batch_id}/{platform}/{option}.png')
+def preview_ai_platform_post(batch_id:str,platform:str,option:int):
+    data=batch_detail(batch_id)
+    if option not in (1,2,3):raise HTTPException(404,'Invalid option')
+    c=data['candidates'][option-1]
+    return Response(image_bytes(option,platform,c['headline'],c['subheadline']),
+                    media_type='image/png',headers={'Cache-Control':'private, max-age=60'})
