@@ -20,6 +20,7 @@ on:
       - 'director_demo.py'
       - 'director_ai_studio.py'
       - 'production_media.py'
+      - 'approval_acceptance.py'
       - 'motion_reels.py'
       - 'image_quality.py'
       - 'production_video_import.py'
