@@ -222,3 +222,7 @@ app.include_router(director_demo_router)
 # Director-triggered AI text ideation and review; no image mutation or publishing.
 from director_ai_studio import router as director_ai_studio_router
 app.include_router(director_ai_studio_router)
+
+# Four-channel real PNG creative previews and downloads; no publishing.
+from social_asset_exports import router as social_exports_router
+app.include_router(social_exports_router)
