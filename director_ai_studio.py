@@ -12,6 +12,7 @@ from fastapi import APIRouter, Form, HTTPException
 from security_roles import director_required
 from engine import create, verify, get_ai_config
 import reference_grid as grid
+import durable_campaign_store as durable
 from director_demo import verified_master
 
 router=APIRouter()
@@ -116,13 +117,19 @@ def create_ai_batch(brief,audience,objective,platform,provider):
                          'human_approval_required':True})
     ident=str(uuid.uuid4())
     timestamp=datetime.now(timezone.utc).isoformat()
+    if durable.is_configured():
+        try:
+            durable.save_batch(ident,timestamp,brief.strip(),used,cfg['model'],
+                {'candidates':concepts,'checks':reviewed})
+        except durable.CampaignStoreError as exc:
+            raise HTTPException(503,str(exc)) from None
     with connect() as db:
         db.execute('INSERT INTO ai_campaign_batches VALUES (?,?,?,?,?,?)',
           (ident,timestamp,brief.strip(),used,cfg['model'],
            json.dumps({'candidates':concepts,'checks':reviewed},ensure_ascii=False)))
         db.commit()
     return {'id':ident,'provider':used,'model':cfg['model'],'candidates':concepts,
-            'checks':reviewed,'publication_status':'blocked','archival_scope':'ephemeral_demo'}
+            'checks':reviewed,'publication_status':'blocked','archival_scope':'private_supabase' if durable.is_configured() else 'ephemeral_demo'}
 
 @router.post('/api/director-demo/ai/generate')
 def generate(brief:str=Form(...),audience:str=Form('Manufacturing businesses'),
@@ -132,14 +139,27 @@ def generate(brief:str=Form(...),audience:str=Form('Manufacturing businesses'),
 
 @router.get('/api/director-demo/ai/batches')
 def batches():
+    if durable.is_configured():
+        try:return {'batches':durable.list_batches(),'durable':True}
+        except durable.CampaignStoreError as exc:raise HTTPException(503,str(exc)) from None
     with connect() as db:
         rows=db.execute('SELECT id,created_utc,brief,provider,model FROM ai_campaign_batches ORDER BY created_utc DESC LIMIT 8').fetchall()
-    return {'batches':[dict(x) for x in rows]}
+    return {'batches':[dict(x) for x in rows],'durable':False}
 
 @router.get('/api/director-demo/ai/batches/{batch_id}')
 def batch_detail(batch_id:str):
     try:ident=str(uuid.UUID(batch_id))
     except ValueError:raise HTTPException(404,'Unknown generation batch')
+    if durable.is_configured():
+        try:
+            row=durable.get_batch(ident)
+            decisions=durable.get_reviews(ident) if row else []
+        except durable.CampaignStoreError as exc:
+            raise HTTPException(503,str(exc)) from None
+        if row is None:raise HTTPException(404,'Unknown campaign batch')
+        return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
+                **row['payload'],'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
+                'publishing':'disabled','durable':True}
     with connect() as db:
         row=db.execute('SELECT * FROM ai_campaign_batches WHERE id=?',(ident,)).fetchone()
         decisions=db.execute('SELECT option_no,decision,note FROM ai_campaign_reviews WHERE batch_id=?',(ident,)).fetchall()
@@ -147,7 +167,7 @@ def batch_detail(batch_id:str):
     return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
             **json.loads(row['payload']),
             'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
-            'publishing':'disabled'}
+            'publishing':'disabled','durable':False}
 
 @router.post('/api/director-demo/ai/batches/{batch_id}/{option}/decision')
 def decide(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
@@ -163,6 +183,9 @@ def decide(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
     if decision=='approved' and not check['passed']:
         raise HTTPException(409,'Flagged AI claims cannot be approved until corrected')
     now=datetime.now(timezone.utc).isoformat()
+    if durable.is_configured():
+        try:durable.save_decision(batch_id,option,decision,note.strip(),now)
+        except durable.CampaignStoreError as exc:raise HTTPException(503,str(exc)) from None
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
         db.execute("""INSERT INTO ai_campaign_reviews VALUES(?,?,?,?,?,?)

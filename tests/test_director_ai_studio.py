@@ -107,6 +107,29 @@ class AiStudioTests(unittest.TestCase):
         self.assertEqual(response.media_type,'image/png')
         self.assertEqual(response.body,original)
 
+    def test_durable_batch_read_after_restart_ignores_local_database(self):
+        from unittest.mock import patch
+        import director_ai_studio as ai
+        record={'id':'00000000-0000-0000-0000-000000000123',
+                'brief':'Industrial growth planning','provider':'openai_api',
+                'model':'mock','payload':{'candidates':[{'headline':'Plan'}]*3,
+                'checks':[{'passed':True}]*3}}
+        with patch.object(ai.durable,'is_configured',return_value=True),patch.object(
+            ai.durable,'get_batch',return_value=record),patch.object(
+            ai.durable,'get_reviews',return_value=[{'option_no':1,'decision':'approved','note':''}]):
+            loaded=ai.batch_detail(record['id'])
+        self.assertTrue(loaded['durable'])
+        self.assertEqual(loaded['reviews']['1']['decision'],'approved')
+
+    def test_durable_read_failure_not_silently_replaced_by_ephemeral_storage(self):
+        from unittest.mock import patch
+        import director_ai_studio as ai
+        with patch.object(ai.durable,'is_configured',return_value=True),patch.object(
+            ai.durable,'get_batch',side_effect=ai.durable.CampaignStoreError('Private AI campaign storage is unreachable')):
+            with self.assertRaises(HTTPException) as err:
+                ai.batch_detail('00000000-0000-0000-0000-000000000123')
+            self.assertEqual(err.exception.status_code,503)
+
     def test_ui_contains_real_generate_control(self):
         import director_demo
         t=activate_actor('Director')
