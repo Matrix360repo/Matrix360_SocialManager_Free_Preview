@@ -223,8 +223,8 @@ def decide(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
     verified_master()
     data=batch_detail(batch_id)
     check=data['checks'][option-1]
-    if decision=='approved' and not check['passed']:
-        raise HTTPException(409,'Flagged AI claims cannot be approved until corrected')
+    if decision=='approved' and not check['passed'] and not note.strip().startswith('Director factual sign-off:'):
+        raise HTTPException(409,'Flagged factual claims require an explicit Director factual sign-off in the review note')
     now=datetime.now(timezone.utc).isoformat()
     if durable.is_configured():
         try:durable.save_decision(batch_id,option,decision,note.strip(),now)
@@ -252,8 +252,8 @@ def decide_reel(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')
     data=batch_detail(batch_id)
     if len(data.get('reels',[]))!=3:
         raise HTTPException(409,'No generated reel found in this batch')
-    if decision=='approved' and not data['checks'][option-1]['passed']:
-        raise HTTPException(409,'Compliance issues prevent approval; request revision first')
+    if decision=='approved' and not data['checks'][option-1]['passed'] and not note.strip().startswith('Director factual sign-off:'):
+        raise HTTPException(409,'Flagged factual claims require an explicit Director factual sign-off in the review note')
     if not durable.is_configured():
         raise HTTPException(503,'Private durable approvals must be configured')
     now=datetime.now(timezone.utc).isoformat()
