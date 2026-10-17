@@ -17,7 +17,7 @@ from director_demo import verified_master
 router=APIRouter()
 AUDIENCES=('Manufacturing businesses','Warehousing operators','Logistics and 3PL','Industrial investors and occupiers')
 OBJECTIVES=('Awareness','Consultation enquiries','Thought leadership')
-PLATFORMS=('Instagram','LinkedIn')
+PLATFORMS=('Instagram','Facebook','LinkedIn','X-Twitter')
 PROVIDERS=('openai','groq')
 FORBIDDEN=[
     r'\b(?:ready to move|ready now|fully developed|fully operational|operational facilities)\b',

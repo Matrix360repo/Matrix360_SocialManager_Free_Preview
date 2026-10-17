@@ -232,7 +232,7 @@ def director_demo():
         </label>
         <label>Target audience<select name="audience"><option>Manufacturing businesses</option><option>Warehousing operators</option><option>Logistics and 3PL</option><option>Industrial investors and occupiers</option></select></label>
         <label>Objective<select name="objective"><option>Consultation enquiries</option><option>Awareness</option><option>Thought leadership</option></select></label>
-        <label>Channel<select name="platform"><option>Instagram</option><option>LinkedIn</option></select></label>
+        <label>Channel<select name="platform"><option>Instagram</option><option>Facebook</option><option>LinkedIn</option><option>X-Twitter</option></select></label>
         <label>AI model<select name="provider"><option value="openai">OpenAI · GPT-4.1-mini</option><option value="groq">Groq · if configured</option></select></label>
         <button class="primary" type="submit" id="ai-submit">✦ Generate 3 AI concepts</button>
       </form>
