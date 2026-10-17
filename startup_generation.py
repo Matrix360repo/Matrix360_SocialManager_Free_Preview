@@ -16,7 +16,6 @@ BRIEF=("Generate three distinct Lakhotia Industrial Complex industrial B2B posts
 "industrial controls, clearly illustrative and NOT existing Lakhotia facilities. "
 "Three unique editorial visual directions and copy with strong consultation CTAs. "
 "Reels need kinetic titles, genuine graphic motion, background music and voiceover. "
-"Correct location Ranihati-Amta Road, Howrah, around 4 km from NH-16. "
 "Never claim completed facilities, installed utilities, operational power/water, "
 "guaranteed approvals or ready-to-occupy buildings. "+RUN_TAG)
 
