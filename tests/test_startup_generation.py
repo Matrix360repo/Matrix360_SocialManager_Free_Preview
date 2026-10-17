@@ -2,6 +2,11 @@ import unittest
 from unittest.mock import patch
 import startup_generation as g
 class ProductionSeedTests(unittest.TestCase):
+    def test_factual_three_category_brief_within_api_limit(self):
+        self.assertLessEqual(len(g.BRIEF),900)
+        for category in ('ARCHITECTURE','HUMAN OPERATIONS','UTILITIES & TECHNOLOGY'):
+            self.assertIn(category,g.BRIEF)
+
  def test_not_enabled_without_explicit_director_instruction(self):
   with patch.dict('os.environ',{'MATRIX_PRODUCTION_GENERATE_ONCE':''}),patch.object(g.threading,'Thread') as t:
    g.kickoff()
