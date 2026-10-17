@@ -72,20 +72,21 @@ def download_media(path):
     return data
 
 def visual_prompt(candidate,index):
-    scene=str(candidate.get('creative_guidance',''))[:1200]
-    desc=str(candidate.get('headline',''))[:150]
-    settings=[
-      'Photoreal editorial documentary close-up of precision manufacturing: detailed machining tooling, technicians hands at equipment, industrial material textures; authentic factory environment and visible physical activity',
-      'Photoreal wide scene inside a generic modern warehouse: rows of stored goods, dock loading and transport preparation, natural architecture and realistic industrial scale',
-      'Photoreal business-planning meeting: professionals reviewing actual-looking logistics planning sketches and land requirements on a table, editorial corporate photography, natural Indian context'
-    ]
-    return ('Create a sophisticated high-end COMMERCIAL PHOTOGRAPHIC BACKGROUND for a social campaign about industrial land planning, Lakhotia Industrial Complex, West Bengal. '
-       'Make this image visually unique and a completely different photographic subject from the other campaigns. '
-       'Scene: '+settings[index-1]+'. Creative copy context: '+desc+'. Art direction: '+scene+'. '
-       'Image must be a realistic generic illustrative industry context, not a claim or photograph of the Lakhotia project. '
-       'DO NOT show or recreate the specific Lakhotia architectural gate, branded buildings, fuel/CNG facilities, office site or any false project amenities. '
-       'No text, signs, logos, numbers, diagrams, watermarks, banners or captions in generated image. '
-       'No misleading master-plan imagery. Photographic realism, strong composition and lighting, room for separately typeset marketing copy.')
+    """Creative subject is authored by the live model, never index-selected."""
+    scene=str(candidate.get('creative_guidance','')).strip()[:1400]
+    desc=str(candidate.get('headline','')).strip()[:150]
+    pillar=str(candidate.get('pillar','')).strip()[:90]
+    if len(scene)<24:
+        raise RuntimeError('AI did not supply usable distinct visual direction')
+    return ('Generate one ORIGINAL premium, realistic commercial PHOTOGRAPH for an industrial business campaign. '
+       'The image must express this unique model-authored campaign direction: '+scene+
+       '. Narrative focus: '+pillar+'. Copy intent: '+desc+'. '
+       'Translate the exact direction into a distinctive photographic subject, camera angle, action, setting, mood, lens and composition. '
+       'Avoid stock-poster layouts. No text, no logos, no signage or watermarks inside the generated photograph. '
+       'This is generic illustrative business or industrial photography; NEVER pretend it is a real photo of the Lakhotia Industrial Complex. '
+       'Never create or alter the official Lakhotia architectural gate, buildings, landscaping, site facilities, development plan or fuel/CNG canopy. '
+       'No imaginary features attributed to Lakhotia. Natural light, credible engineering detail, authentic movement and high editorial visual quality. '
+       'Provide composition space for a separately typeset headline and phone number.')
 
 def generate_one_image(batch_id,idx,candidate):
     try:
