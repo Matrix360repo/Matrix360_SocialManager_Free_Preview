@@ -67,7 +67,7 @@ def strict_check(candidate):
         stripped=stripped.replace(approved,' ')
     if re.search(r'(?<!\w)(?:\d[\d,.]*\s*(?:\+|%)?\s*(?:bighas?|km|acres?|hectares?|crores?|lakhs?)|\bnh[-\s]?\d+\b)',stripped,re.I):
         reasons.append('Unverified numeric/geographic claim')
-    if re.search(r'\b(?:mega[- ]?factories|mega[- ]?parks|large[- ]?scale enterprises|gigantic (?:plants|factories|complexes)|fortune 500|multinational conglomerates)\b',text,re.I):
+    if re.search(r'\b(?:mega[- ]?factories|mega[- ]?parks|large[- ]?scale enterprises|gigantic (?:plants|factories|complexes)|fortune 500|multinational conglomerates?)\b',text,re.I):
         reasons.append('Narrative is outside the SME/MSME target audience')
     if 'lakhotiaindustrialcomplex.com' not in text.lower():reasons.append('Missing official website')
     if '74500 08999' not in text:reasons.append('Missing official telephone')
