@@ -171,8 +171,26 @@ def synth_voice(client,reel):
         audio=response.read()
     except Exception as exc:
         raise MotionRenderError("Voiceover provider request failed: "+type(exc).__name__) from None
-    if len(audio)<2000 or audio[:3]!=b"ID3" and audio[:2]!=b"\xff\xfb":
-        raise MotionRenderError("Voiceover provider produced invalid MP3")
+    # Decode real provider audio; valid MP3 files have several frame headers.
+    # The previous two-byte comparison rejected playable output.
+    if len(audio)<1500:
+        raise MotionRenderError("Voiceover provider returned empty audio")
+    with tempfile.TemporaryDirectory(prefix="matrix360-voice-check-") as tmp:
+        sample=Path(tmp)/"voice.mp3"
+        sample.write_bytes(audio)
+        result=subprocess.run(["ffprobe","-v","error","-show_entries",
+             "stream=codec_type:format=duration","-of","json",str(sample)],
+             capture_output=True,text=True,timeout=25)
+        if result.returncode:
+            raise MotionRenderError("Voiceover provider returned undecodable audio")
+        try:
+            info=json.loads(result.stdout)
+            streams={x.get("codec_type") for x in info.get("streams",[])}
+            seconds=float(info.get("format",{}).get("duration") or 0)
+        except (TypeError,ValueError):
+            raise MotionRenderError("Voiceover audio metadata invalid") from None
+        if "audio" not in streams or seconds<1:
+            raise MotionRenderError("Voiceover lacks playable speech audio")
     return audio
 
 def probe_video(path,min_duration=10):
