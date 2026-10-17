@@ -194,7 +194,8 @@ async function history(){
  try{const data=await json('/api/director-demo/ai/batches'),box=$('history');box.replaceChildren();
  (data.batches||[]).forEach(b=>button(box,(b.created_utc||'').slice(0,16)+' · '+b.brief.slice(0,90),
  ()=>showBatch(b.id),'subtle'));
- if(!data.batches?.length)box.append(elt('span','No stored AI campaigns yet.'))}
+ if(!data.batches?.length)box.append(elt('span','No stored AI campaigns yet.'));
+ if(!current && data.batches?.length)await showBatch(data.batches[0].id)}
  catch(err){$('history').textContent='History unavailable: '+err.message}
 }
 history();ticker=setInterval(async()=>{if(current)await refresh()},20000);
