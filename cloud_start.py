@@ -66,9 +66,23 @@ def storage_preflight():
         result=str(exc)
     print('MATRIX360_REFERENCE_PREFLIGHT key_type='+key_type+' result='+result,flush=True)
 
+def ai_storage_preflight():
+    """Non-secret REST readiness check. No model calls or sensitive data in logs."""
+    import durable_campaign_store as campaign_store
+    try:
+        if not campaign_store.is_configured():
+            state='not_configured'
+        else:
+            campaign_store.list_batches()
+            state='remote_read_verified'
+    except campaign_store.CampaignStoreError as exc:
+        state=str(exc)
+    print('MATRIX360_AI_DURABILITY_PREFLIGHT result='+state,flush=True)
+
 if __name__=='__main__':
     prepare()
     storage_preflight()
+    ai_storage_preflight()
     import uvicorn
     port=int(os.environ.get('PORT','10000'))
     uvicorn.run('app:app',host='0.0.0.0',port=port,proxy_headers=True)
