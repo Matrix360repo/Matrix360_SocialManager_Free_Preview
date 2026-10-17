@@ -21,12 +21,12 @@ def inspect_photo(client,raw,index):
         preview.save(buffer,format='JPEG',quality=74,optimize=True)
     encoded=base64.b64encode(buffer.getvalue()).decode('ascii')
     specific=(
-       'Review one or two adult people in a realistic industrial workplace. '
+       'Only approve a scene that clearly depicts adult Indian professionals ' 'in a credible small-to-medium Indian workshop or local warehouse. ' 'Attire must be culturally plausible: Indian operational workwear, simple ' 'business clothing, safety shirts or helmets when appropriate. Reject ' 'Western stock-photo corporate settings and giant mega-plant interiors. ' 'Review one or two adult people in a realistic industrial workplace. '
        'Look for repeated cloned faces, extra people, malformed hands, '
        'extra fingers, duplicated limbs, double heads, odd disconnected '
        'objects, plastic skin, inconsistent shadows or pasted photographs.'
        if index==2 else
-       'Review a realistic person-free industrial technology scene. '
+       'Review a credible person-free SME-scale Indian workshop or small warehouse ' 'technology scene, not an enormous or fantastical enterprise complex. '
        'Reject people, duplicated instrument panels, inconsistent pipes '
        'or cable connections, nonsensical technology or physical impossibility.'
     )
@@ -42,7 +42,7 @@ def inspect_photo(client,raw,index):
              'Assess spatial and anatomical realism, geometry, consistency, '
              'duplication and artifact-free client-presentation quality. '
              'Approve genuinely coherent photography even if it is generic. '
-             'Never claim a pictured facility exists at Lakhotia.'
+             'Reject oversized mega-factory compositions. For human option 2, ' 'reject scenes that are clearly non-Indian, implausible as a local SME, or feature wrong workwear. ' 'Never claim a pictured facility exists at Lakhotia.'
            )},
            {'role':'user','content':[
              {'type':'text','text':specific},
