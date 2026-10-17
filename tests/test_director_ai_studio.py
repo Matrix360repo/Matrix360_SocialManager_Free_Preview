@@ -21,6 +21,15 @@ class AiStudioTests(unittest.TestCase):
         self.assertFalse(ai.strict_check(candidate('Guaranteed ROI for investors'))['passed'])
         self.assertFalse(ai.strict_check(candidate('Just 7 km from NH-55'))['passed'])
 
+    def test_sme_scale_and_four_channel_engagement(self):
+        item=candidate('Local MSME warehouse planning')
+        engagement=ai.platform_engagement(item)
+        self.assertEqual(set(engagement),{'Instagram','Facebook','LinkedIn','X-Twitter'})
+        self.assertTrue(all(v['comment'] and v['hashtags'] for v in engagement.values()))
+        self.assertIn('#MSMEIndia',engagement['Instagram']['hashtags'])
+        self.assertFalse(ai.strict_check(candidate('A giant multinational conglomerate plant'))['passed'])
+        self.assertNotIn('bighas under development',ai.SAFE_SOURCE)
+
     def test_operator_cannot_trigger_paid_generation_or_decide(self):
         t=activate_actor('operator')
         try:
