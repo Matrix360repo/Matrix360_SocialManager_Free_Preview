@@ -21,6 +21,7 @@ on:
       - 'director_ai_studio.py'
       - 'production_media.py'
       - 'motion_reels.py'
+      - 'image_quality.py'
       - 'production_video_import.py'
       - 'startup_generation.py'
       - 'production_dashboard.py'
@@ -44,6 +45,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_asset_studio.py reference_image_lab.py reference_grid.py reference_gallery_v2.py architectural_compositor.py reference_persistence.py motion_reels.py production_media.py production_video_import.py startup_generation.py production_dashboard.py director_ai_studio.py durable_campaign_store.py
+      - run: python -m compileall -q app.py engine.py review_addon.py revision_agent.py ai_revision_v13.py security_roles.py cloud_start.py campaign_studio_poc.py brand_asset_studio.py reference_image_lab.py reference_grid.py reference_gallery_v2.py architectural_compositor.py reference_persistence.py motion_reels.py image_quality.py production_media.py production_video_import.py startup_generation.py production_dashboard.py director_ai_studio.py durable_campaign_store.py
       - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - run: python -m unittest discover -s tests -v

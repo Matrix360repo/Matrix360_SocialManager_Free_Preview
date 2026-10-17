@@ -116,6 +116,10 @@ function displayPosts(status){
    body.append(elt('span','POST 0'+idx+' · '+(item.pillar||''),'pill'),elt('h3',item.headline),elt('p',item.caption));
    if(s.status==='completed'){const links=elt('div',undefined,'downloads');
      names.forEach(ch=>link(links,ch+' PNG',postUrl(idx,ch),true));body.append(links)}
+   if(idx>1 && (s.status==='completed'||s.status==='failed') &&
+      (current.reviews||{})[idx]?.decision!=='approved'){
+     button(body,'Regenerate & inspect image',()=>retryPhoto(idx),'subtle');
+   }
    reviewActions(body,idx,'Post',c,(current.reviews||{})[idx]?.decision);
    card.append(body);node.append(card)
  })
@@ -137,6 +141,13 @@ function displayReels(status){
   reviewActions(body,idx,'Reel',current.checks[i]||{passed:false,issues:['Unscreened']},(current.reel_reviews||{})[idx]?.decision);
   card.append(body);node.append(card)
  })
+}
+async function retryPhoto(idx){
+ try{
+  const r=await json('/api/production-media/'+enc(current.id)+'/post/'+idx+'/regenerate',{method:'POST'});
+  info('Photographic re-generation started for Post '+idx+'. Visual QA runs before archival.');
+  await refresh()
+ }catch(err){info('Image re-generation failed: '+err.message,true)}
 }
 async function retryVideo(idx){
  try{const r=await json('/api/production-media/'+enc(current.id)+'/reel/'+idx+'/retry',{method:'POST'});
