@@ -11,6 +11,7 @@ import os
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -71,6 +72,39 @@ def download_media(path):
     if not data:raise HTTPException(502,'Empty stored file')
     return data
 
+@lru_cache(maxsize=6)
+def cached_image_bytes(path,revision):
+    """Bounded server cache keyed by persistence revision; regenerations invalidate naturally."""
+    return download_media(path)
+
+
+@lru_cache(maxsize=8)
+def cached_post_bytes(path,revision,platform,option,headline,subheadline):
+    source=cached_image_bytes(path,revision)
+    return composite(source,{'headline':headline,'subheadline':subheadline},platform,option=option)
+
+
+def signed_private_link(path,expires_in=600):
+    """Short-lived browser-direct private Storage delivery; never reveal service secret."""
+    if not path or not re.fullmatch(r'[0-9a-f-]{36}/(?:image|video)/[1-3]\.(?:png|mp4)',path):
+        raise HTTPException(404,'Unknown private media')
+    url,key=auth_config()
+    endpoint=url+'/storage/v1/object/sign/'+BUCKET+'/'+path
+    request=Request(endpoint,method='POST',data=json.dumps({'expiresIn':expires_in}).encode('utf-8'),
+                    headers={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+    try:
+        with urlopen(request,timeout=14) as response:
+            result=json.load(response)
+    except (HTTPError,URLError,TimeoutError,ValueError):
+        raise HTTPException(503,'Private streaming link temporarily unavailable') from None
+    partial=result.get('signedURL','')
+    expected='/object/sign/'+BUCKET+'/'+path+'?'
+    if not isinstance(partial,str) or not partial.startswith(expected):
+        raise HTTPException(503,'Storage signing returned an invalid response')
+    return {'url':url+'/storage/v1'+partial,'expires_in':expires_in,
+            'type':'video/mp4' if path.endswith('.mp4') else 'image/png'}
+
+
 VISUAL_PILLARS=(
     'Architecture & Infrastructure',
     'Human Element & Operations',
@@ -86,7 +120,7 @@ def visual_prompt(candidate,index):
        'Use ONLY the externally verified and unmodified Lakhotia gate artwork. '
        'Do not synthesize a master plan or a project building. This category is '
        'rendered from the approved original, not sent to generative imaging.',
-       'Show authentic industrial PEOPLE at work: one clearly distinct adult '
+       'Show clearly Indian adults in a credible Howrah/West Bengal SME workshop, ' 'small manufacturing unit or compact warehouse, wearing authentic local ' 'work shirts, safety vests or practical business attire. No Western stock-photo ' 'corporate casting or oversized multinational plant settings. ' 'Show authentic industrial PEOPLE at work: one clearly distinct adult '
        'professional or, at most, two different adults naturally cooperating. '
        'One physically coherent human per pose, exactly two arms and hands '
        'per person, five realistic fingers per visible hand, no mirrored or '
@@ -94,7 +128,7 @@ def visual_prompt(candidate,index):
        'photographic cutout seams, duplicate heads or uncanny plastic skin. '
        'Editorial candid shot of real operational decisions, movement and '
        'working environment. No children.',
-       'Show a PERSON-FREE close-up of believable generic industrial '
+       'Show SME-scale, affordable, PERSON-FREE close-up of believable generic industrial '
        'utilities or industrial instrumentation: precisely engineered '
        'electrical distribution control cabinet, monitoring gauges, '
        'plumbing or sensor equipment, physical cable conduits and '
@@ -104,7 +138,7 @@ def visual_prompt(candidate,index):
        'depiction of installed Lakhotia utilities.',
     )
     return (
-       'Create one original high-end photorealistic advertising photograph. '
+       'Create one original realistic Indian MSME-scale industrial advertising photograph, ' 'not a luxury mega-factory or giant enterprise complex. '
        'PILLAR '+str(index)+' — '+VISUAL_PILLARS[index-1]+'. '
        'Hard visual constraint: '+constraints[index-1]+'. '
        'User campaign creative idea (secondary to visual constraint): '+scene+'. '
@@ -267,10 +301,10 @@ def batch_data(batch_id):
 
 def progress(batch_id):
     batch_data(batch_id)
-    status={}
-    for kind in ('image','video'):
-        status[kind]=[media_record(batch_id,i,kind) or {'status':'queued','option_no':i} for i in (1,2,3)]
-    return status
+    rows=db.api('media','GET','select=*&batch_id=eq.'+quote(batch_id))
+    indexed={(r['kind'],int(r['option_no'])):r for r in rows}
+    return {kind:[indexed.get((kind,i),{'status':'queued','option_no':i}) for i in (1,2,3)]
+            for kind in ('image','video')}
 
 @router.get('/api/production-media/{batch_id}/status')
 def status(batch_id:str):
@@ -282,8 +316,10 @@ def preview_post(batch_id:str,platform:str,option:int):
     batch=batch_data(batch_id)
     row=media_record(batch_id,option,'image')
     if not row or row['status']!='completed':raise HTTPException(409,'AI image is not rendered')
-    raw=download_media(row['object_path'])
-    return Response(composite(raw,batch['candidates'][option-1],platform,option=option),media_type='image/png',
+    candidate=batch['candidates'][option-1]
+    raw=cached_post_bytes(row['object_path'],str(row.get('updated_at','')),platform,option,
+                          str(candidate.get('headline','')),str(candidate.get('subheadline','')))
+    return Response(raw,media_type='image/png',
         headers={'Content-Disposition':f'attachment; filename="lakhotia-{platform}-ai-{option}.png"','Cache-Control':'private, no-store'})
 
 def composite(raw,candidate,platform,option=2):
@@ -330,6 +366,16 @@ def wrap(draw,text,font,max_width):
         else:part=trial
     if part:lines.append(part)
     return lines
+
+@router.get('/api/production-media/{batch_id}/reel/{option}/stream-link')
+def reel_stream_link(batch_id:str,option:int):
+    """Authenticated exchange for an expiring private URL with native HTTP Range streaming."""
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    batch_data(batch_id)
+    row=media_record(batch_id,option,'video')
+    if not row or row['status']!='completed':raise HTTPException(409,'Video not ready')
+    return signed_private_link(row['object_path'])
+
 
 @router.get('/api/production-media/{batch_id}/reel/{option}/video.mp4')
 def downloadable_reel(batch_id:str,option:int):
