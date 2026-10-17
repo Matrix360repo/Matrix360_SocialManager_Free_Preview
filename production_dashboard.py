@@ -43,13 +43,13 @@ hr{border:0;border-top:1px solid #e5ebe5;margin:25px 0}
 </style></head><body><header><div><strong>MATRIX 360</strong><br><small>PRODUCTION CREATIVE STUDIO · LAKHOTIA</small></div><small>''' + role + r''' · controlled publishing</small></header>
 <main><div class="kicker">LIVE AI GENERATION / PRIVATE SUPABASE STORAGE</div>
 <h1>Creative production, not placeholders.</h1>
-<p class="lead">Generate three distinct photographic social concepts and three genuine motion-video reel concepts from your brief. Images and MP4s appear only after the respective AI provider has completed rendering.</p>
+<p class="lead">Client presentation: Indian SME/MSME light manufacturing, growing local warehouse and logistics units only. Generate three distinct photographic social concepts and motion-graphics reels from your brief. Images and MP4s appear only after the respective AI provider has completed rendering.</p>
 <section class="panel"><h2>New campaign brief</h2>
 <form id="generate">
 <label>What should this campaign communicate?
 <textarea name="brief" required minlength="15" maxlength="900" placeholder="Describe the business objective, audience, proof points and tone."></textarea></label>
 <div class="grid4">
-<label>Audience<select name="audience"><option>Manufacturing businesses</option><option>Warehousing operators</option><option>Logistics and 3PL</option><option>Industrial investors and occupiers</option></select></label>
+<label>Audience<select name="audience"><option>SME light manufacturing</option><option>MSME production units</option><option>Growing regional warehouses</option><option>Small logistics and 3PL units</option></select></label>
 <label>Objective<select name="objective"><option>Consultation enquiries</option><option>Awareness</option><option>Thought leadership</option></select></label>
 <label>Primary channel<select name="platform"><option>Instagram</option><option>Facebook</option><option>LinkedIn</option><option>X-Twitter</option></select></label>
 <label>Text model<select name="provider"><option value="openai">OpenAI</option><option value="groq">Groq</option></select></label>
@@ -65,7 +65,7 @@ hr{border:0;border-top:1px solid #e5ebe5;margin:25px 0}
 <p class="notes">All approval actions are Director-only and audited. AI output is unapproved until reviewed. External social publishing remains disabled.</p></section>
 </main>
 <script>
-const $=id=>document.getElementById(id);let current=null,ticker=null;
+const $=id=>document.getElementById(id);let current=null,ticker=null,postsRenderKey='',reelsRenderKey='';
 const enc=s=>encodeURIComponent(s);
 function elt(tag,text,cls){let el=document.createElement(tag);if(text!==undefined)el.textContent=String(text);if(cls)el.className=cls;return el}
 function info(message,bad=false){$('feedback').textContent=message;$('feedback').className='status'+(bad?' error':'')}
@@ -101,19 +101,34 @@ function reviewActions(card,option,kind,check,decision){
  card.append(msg)
 }
 function displayPosts(status){
- const node=$('posts');node.replaceChildren();
  const channel=$('channel').value;
+ const key=current.id+'|'+channel+'|'+JSON.stringify(status.image)+'|'+JSON.stringify(current.reviews||{});
+ if(key===postsRenderKey)return;
+ postsRenderKey=key;
+ const node=$('posts');node.replaceChildren();
  (current.candidates||[]).forEach((item,i)=>{
    const idx=i+1,s=status.image[i]||{},c=current.checks[i]||{passed:false,issues:['Unscreened']};
    const card=elt('article',undefined,'card'),visual=elt('div',undefined,'visual');
    if(s.status==='completed'){
-     const img=elt('img');img.src=postUrl(idx,channel);img.alt='AI photographic composition '+idx+' for '+channel;
+     const img=elt('img');img.loading='lazy';img.decoding='async';img.src=postUrl(idx,channel);img.alt='AI photographic composition '+idx+' for '+channel;
      img.addEventListener('error',()=>{visual.replaceChildren(elt('div','Image unavailable from private storage','status error'))});
      visual.append(img)
    }else{visual.append(elt('div','Image render: '+(s.status||'queued')+(s.error_message?' — '+s.error_message:''),'status'+(s.status==='failed'?' error':'')))}
    card.append(visual);
    const body=elt('div',undefined,'card-body');
    body.append(elt('span','POST 0'+idx+' · '+(item.pillar||''),'pill'),elt('h3',item.headline),elt('p',item.caption));
+   const eng=item.engagement?.[channel];
+   if(eng){
+     const label=elt('div','Engagement comment + professional hashtags — '+channel,'notes');
+     const preview=elt('p',eng.comment+'\n'+eng.hashtags.join(' '),'notes');
+     preview.style.whiteSpace='pre-wrap';
+     body.append(label,preview);
+     button(body,'Copy comment + hashtags',async()=>{
+       const value=eng.comment+'\n'+eng.hashtags.join(' ');
+       try{await navigator.clipboard.writeText(value);info('Engagement copy copied. Manual publishing only.')}
+       catch{window.prompt('Copy approved engagement draft:',value)}
+     },'subtle');
+   }
    if(s.status==='completed'){const links=elt('div',undefined,'downloads');
      names.forEach(ch=>link(links,ch+' PNG',postUrl(idx,ch),true));body.append(links)}
    if(idx>1 && (s.status==='completed'||s.status==='failed') &&
@@ -125,16 +140,33 @@ function displayPosts(status){
  })
 }
 function displayReels(status){
+ const key=current.id+'|'+JSON.stringify(status.video)+'|'+JSON.stringify(current.reel_reviews||{});
+ if(key===reelsRenderKey)return;
+ reelsRenderKey=key;
  const node=$('reels');node.replaceChildren();
  (current.reels||[]).forEach((reel,i)=>{
   const idx=i+1,s=status.video[i]||{},card=elt('article',undefined,'card');
+  let player=null;
   if(s.status==='completed'){
-   const v=elt('video');v.controls=true;v.preload='metadata';v.playsInline=true;v.src=reelUrl(idx);card.append(v)
+   player=elt('video');player.controls=true;player.preload='none';player.playsInline=true;
+   player.poster=postUrl(idx,'Instagram');card.append(player)
   }else card.append(elt('div','Video rendering: '+(s.status||'queued')+
     (s.error_message?' — '+s.error_message:''),'status'+(s.status==='failed'?' error':'')));
   const body=elt('div',undefined,'card-body');
   body.append(elt('span','REEL 0'+idx,'pill'),elt('h3',reel.headline),elt('p',reel.caption||''));
-  if(s.status==='completed'){const links=elt('div',undefined,'downloads');link(links,'Play MP4',reelUrl(idx),false);link(links,'Download MP4','/api/production-media/'+enc(current.id)+'/reel/'+idx+'/download.mp4',true);body.append(links)}
+  if(s.status==='completed'){
+    button(body,'Load & play (private stream)',async()=>{
+       try{
+          info('Fetching expiring private streaming link for Reel '+idx+'...');
+          const link=await json('/api/production-media/'+enc(current.id)+'/reel/'+idx+'/stream-link');
+          player.src=link.url;player.load();
+          try{await player.play()}catch{info('Reel '+idx+' is loaded. Use its playback control.')}
+       }catch(err){info('Private playback unavailable: '+err.message,true)}
+    });
+    const links=elt('div',undefined,'downloads');
+    link(links,'Download MP4','/api/production-media/'+enc(current.id)+'/reel/'+idx+'/download.mp4',true);
+    body.append(links)
+  }
   else if(s.status==='failed'){
     button(body,'Retry motion render',()=>retryVideo(idx),'subtle');
   }

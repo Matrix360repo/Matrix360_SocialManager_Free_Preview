@@ -6,18 +6,19 @@ without exposing secrets, and uses the same production media APIs as UI users.
 import os,threading
 from security_roles import activate_actor,clear_actor
 
-RUN_TAG='matrix360_issue29_distinct_client_quality_live_v2'
-BRIEF=("Generate three distinct Lakhotia Industrial Complex industrial B2B posts and "
-"reels for manufacturing, warehousing and logistics. Category 1 ARCHITECTURE: "
-"use only the approved unchanged gate, no new site plan or fictional buildings. "
-"Category 2 HUMAN OPERATIONS: natural one/two person generic industrial "
-"workplace with no repeated faces or anatomical glitches. "
-"Category 3 UTILITIES & TECHNOLOGY: person-free generic sensors, meters and "
-"industrial controls, clearly illustrative and NOT existing Lakhotia facilities. "
-"Three unique editorial visual directions and copy with strong consultation CTAs. "
-"Reels need kinetic titles, genuine graphic motion, background music and voiceover. "
-"Never claim completed facilities, installed utilities, operational power/water, "
-"guaranteed approvals or ready-to-occupy buildings. "+RUN_TAG)
+RUN_TAG='matrix360_p0_indian_sme_client_review_20261017'
+BRIEF=("Create three authentic India-specific B2B creatives and 15-second motion reels "
+"for MSME light manufacturers and growing local "
+"warehousing/logistics units near Howrah. ARCHITECTURE: use ONLY the exact "
+"approved Lakhotia gate, unchanged; do not invent buildings. HUMAN OPERATIONS: "
+"one or two clearly Indian local professionals, natural clothing or workwear, "
+"small-workshop scale, realistic anatomy and lighting, not stock-style giant "
+"factory imagery. UTILITIES & TECHNOLOGY: people-free real-world affordable "
+"controls and gauges suitable for MSMEs; clearly illustrative, NOT existing "
+"Lakhotia facilities. Distinct storytelling, kinetic typography, instrumental "
+"music and intelligible short voiceover. CTA free industrial planning "
+"consultation, +91 74500 08999. Omit all acreage claims and unsupported "
+"claims of installed or completed facilities. "+RUN_TAG)
 
 def archive_video(batch_id):
     try:

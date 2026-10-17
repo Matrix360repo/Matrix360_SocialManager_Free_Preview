@@ -158,9 +158,9 @@ def overlay_frame(frame,t,duration,option,reel,width,height):
     return image
 
 def voice_script(reel):
-    title=" ".join(str(reel.get("headline","Industrial planning")).split())[:95]
-    return (title+". Industrial land planning for manufacturing, warehousing and "
-            "logistics in Howrah. Discuss your requirements with Lakhotia Industrial Complex.")
+    title=" ".join(str(reel.get("headline","Industrial planning")).split())[:64]
+    return (title+". Planning industrial land for Indian small businesses in Howrah. "
+            "Discuss your light manufacturing or warehouse requirements with Lakhotia.")
 
 def synth_voice(client,reel):
     try:

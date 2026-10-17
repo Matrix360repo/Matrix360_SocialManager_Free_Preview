@@ -16,7 +16,7 @@ import durable_campaign_store as durable
 from director_demo import verified_master
 
 router=APIRouter()
-AUDIENCES=('Manufacturing businesses','Warehousing operators','Logistics and 3PL','Industrial investors and occupiers')
+AUDIENCES=('Manufacturing businesses','Warehousing operators','Logistics and 3PL','SME light manufacturing','MSME production units','Growing regional warehouses','Small logistics and 3PL units')
 OBJECTIVES=('Awareness','Consultation enquiries','Thought leadership')
 PLATFORMS=('Instagram','Facebook','LinkedIn','X-Twitter')
 PROVIDERS=('openai','groq')
@@ -32,7 +32,7 @@ FACTUAL_PATTERN=re.compile(r'\b(?:bighas?|kilometres?|kilometers?|km|acres?|hect
 APPROVED_QUANTITIES=('1,000 bighas under development','2,500+ bighas planned expansion',
                      'approx. 4 km from nh-16','approximately 4 km from nh-16',
                      '35+ years')
-SAFE_SOURCE='Lakhotia Industrial Complex; Ranihati–Amta Road, Howrah; approximately 4 km from NH-16; 1,000 bighas under development; 2,500+ bighas planned expansion; manufacturing, warehousing and logistics; free expert consultation; +91 74500 08999; lakhotiaindustrialcomplex.com.'
+SAFE_SOURCE='Lakhotia Industrial Complex; Ranihati–Amta Road, Howrah, West Bengal; approximately 4 km from NH-16; industrial plots for Indian SMEs and MSMEs in light manufacturing, growing warehousing and regional logistics; free expert consultation; +91 74500 08999; lakhotiaindustrialcomplex.com. Omit all acreage claims pending factual reconfirmation.'
 
 def connect():
     grid.DB.parent.mkdir(parents=True,exist_ok=True)
@@ -67,10 +67,36 @@ def strict_check(candidate):
         stripped=stripped.replace(approved,' ')
     if re.search(r'(?<!\w)(?:\d[\d,.]*\s*(?:\+|%)?\s*(?:bighas?|km|acres?|hectares?|crores?|lakhs?)|\bnh[-\s]?\d+\b)',stripped,re.I):
         reasons.append('Unverified numeric/geographic claim')
+    if re.search(r'\b(?:mega[- ]?factories|mega[- ]?parks|large[- ]?scale enterprises|gigantic (?:plants|factories|complexes)|fortune 500|multinational conglomerates?)\b',text,re.I):
+        reasons.append('Narrative is outside the SME/MSME target audience')
     if 'lakhotiaindustrialcomplex.com' not in text.lower():reasons.append('Missing official website')
     if '74500 08999' not in text:reasons.append('Missing official telephone')
     if len(str(candidate.get('headline','')))>70:reasons.append('Headline too long')
     return {'passed':not reasons,'issues':reasons,'human_approval_required':True}
+
+def platform_engagement(candidate):
+    """Ready-to-copy platform engagement text; never an auto-publishing action."""
+    headline=str(candidate.get('headline','Industrial expansion planning')).strip()[:105]
+    pillar=str(candidate.get('pillar','')).lower()
+    focus=('light manufacturing' if 'human' in pillar else
+           'industrial utilities planning' if 'utilit' in pillar else 'industrial land planning')
+    hashtags={
+        'Instagram':['#LakhotiaIndustrialComplex','#SMEIndia','#MSMEIndia','#LightManufacturing','#HowrahBusiness','#WarehousePlanning','#WestBengalIndustry','#GrowingBusinesses'],
+        'Facebook':['#LakhotiaIndustrialComplex','#MSMEIndia','#HowrahBusiness','#SmallBusinessGrowth','#IndustrialLand'],
+        'LinkedIn':['#MSME','#SMEManufacturing','#IndustrialDevelopment','#WarehouseOperations','#WestBengalBusiness'],
+        'X-Twitter':['#MSME','#SMEIndia','#Howrah','#IndustrialGrowth']
+    }
+    comment=(headline+'. What matters most for your next '+focus+
+             ' decision—access, planning or expansion flexibility? Ask about a free expert consultation: +91 74500 08999.')
+    return {platform:{'comment':comment,'hashtags':tags} for platform,tags in hashtags.items()}
+
+
+def enriched_payload(payload):
+    """Add four-platform comment/hashtag drafts to existing stored campaigns."""
+    result=dict(payload)
+    result['candidates']=[dict(c,engagement=platform_engagement(c)) for c in payload.get('candidates',[])]
+    return result
+
 
 def real_reel_concepts(cfg,brief,concepts):
     """Second real model call: three independent cinematographic video concepts."""
@@ -80,17 +106,17 @@ def real_reel_concepts(cfg,brief,concepts):
        'You are a premium industrial B2B film director. Return JSON object with '
        'reels array of EXACTLY 3 objects. Each must include headline, video_prompt, '
        'caption, platform. Video prompts must describe ACTUAL MOVING live-action '
-       'generic industry footage with distinct visual subjects and camera moves. '
-       'No static posters, slideshow, pan/zoom of images or invented Lakhotia '
+       'authentic Indian SME industrial visual sources plus distinct kinetic graphics. '
+       'Reels are motion graphics, not live-action cinema. No simple slideshows or invented Lakhotia '
        'construction, no real site representation, no logos in model footage. '
        'Each video_prompt 80-300 words. Reel 1 category architecture and '
        'infrastructure must rely on exact approved gate, never fictional site '
-       'structures; reel 2 focuses human operational decisions and workers; '
+       'structures; reel 2 focuses authentic Indian SME workers, local industrial ' 'attire and modest operational settings; '
        'reel 3 depicts only generic illustrative utilities, IoT and technology '
        '(no claim these installations exist at Lakhotia). '
        'Include three distinct kinetic-text phases and a natural spoken '
        'narration hook for the matching business theme. '
-       'Do not claim project facilities are complete; mark scenes illustrative.'
+       'Do not claim project facilities are complete; mark scenes illustrative. ' 'No mega-factories, multinational campuses or large enterprise logistics parks.'
        )},
        {'role':'user','content':json.dumps({'brief':brief,'related_social_concepts':[
          {'headline':c['headline'],'pillar':c['pillar']} for c in concepts],
@@ -128,11 +154,13 @@ def create_ai_batch(brief,audience,objective,platform,provider):
         raise HTTPException(503,'Selected AI provider is not configured')
     if not cfg:
         raise HTTPException(503,'AI provider unavailable')
+    if re.search(r'\b(?:mega[- ]?factory|mega[- ]?complex|large[- ]?scale enterprise|multinational conglomerate|fortune 500)\b',brief,re.I):
+        raise HTTPException(422,'Campaign audience is restricted to SME/MSME and growing regional industry')
     full_topic=('Campaign creative brief: '+brief.strip()+
-       '\nTarget audience: '+audience+
+       '\nMANDATORY SCALE: India-based SMEs/MSMEs, light manufacturing, small workshops and growing modest warehousing/3PL businesses ONLY; no huge plants, enterprise campuses or mega warehouses. Segment: '+audience+
        '\nCreate three genuinely DIFFERENT angles and headlines. Use only these claims: '+SAFE_SOURCE+
-       '\nDo not imply construction is complete. Do not describe gates, roads, landscaping or buildings except as an unaltered approved illustrative visual.'+
-       '\nAvoid new amenities, facilities, services, price, ROI, rankings or invented numerical claims.'+
+       '\nDo not imply construction is complete. Cast authentic Indian adults in locally appropriate professional or safety workwear with realistic Howrah-area small-workshop environments. Preserve the unaltered original architectural gate.'+
+       '\nAvoid all acreage and bigha figures pending Director reconfirmation; no new facilities, ROI, rankings or invented numerical claims.'+
        '\nSTRICT CATEGORY SPLIT for generated concepts: #1 Architecture & Infrastructure (use existing approved Lakhotia gate artwork; do not generate a new gate or a fictitious master plan); #2 Human Element & Operations (authentic one/two-person workplace or industrial planning scene); #3 Facilities, Utilities & Technology (generic real industrial instruments or utility technology, zero people; label any such scene as illustrative and NOT installed Lakhotia infrastructure). Use separate storytelling, unique camera style and copy in each category.'+
        '\nAvoid repeated faces, duplicate people, extra arms or fingers, cutout photographic seams, impossible pipe connections and unrealistic logistics scenes.'+
        '\nNever generate, depict or redraw the Lakhotia complex itself. Its official gate is a separate immutable asset and must not be used as a generative reference.')
@@ -141,7 +169,7 @@ def create_ai_batch(brief,audience,objective,platform,provider):
     try:
         concepts,used=create(
           {'approved_claims':[SAFE_SOURCE],
-           'voice':'Premium, precise, consultative, sober industrial B2B',
+           'voice':'Authentic Indian SME/MSME industrial consulting; practical, precise, locally credible',
            'audiences':[audience]},
            full_topic,objective,platform,no_fallback,requested_provider=provider)
     except Exception as exc:
@@ -161,6 +189,7 @@ def create_ai_batch(brief,audience,objective,platform,provider):
         reviewed.append({'option':i+1,'passed':not issues,'issues':issues,
                          'human_approval_required':True})
     reels=real_reel_concepts(cfg,brief,concepts)
+    concepts=[dict(c,engagement=platform_engagement(c)) for c in concepts]
     ident=str(uuid.uuid4())
     timestamp=datetime.now(timezone.utc).isoformat()
     if durable.is_configured():
@@ -207,7 +236,7 @@ def batch_detail(batch_id:str):
             raise HTTPException(503,str(exc)) from None
         if row is None:raise HTTPException(404,'Unknown campaign batch')
         return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
-                **row['payload'],'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
+                **enriched_payload(row['payload']),'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
                 'reel_reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in reel_decisions},
                 'publishing':'disabled','durable':True}
     with connect() as db:
@@ -215,7 +244,7 @@ def batch_detail(batch_id:str):
         decisions=db.execute('SELECT option_no,decision,note FROM ai_campaign_reviews WHERE batch_id=?',(ident,)).fetchall()
     if row is None:raise HTTPException(404,'Batch no longer exists (preview storage resets)')
     return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
-            **json.loads(row['payload']),
+            **enriched_payload(json.loads(row['payload'])),
             'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
             'publishing':'disabled','durable':False}
 
