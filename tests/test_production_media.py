@@ -44,6 +44,20 @@ class ProductionMediaTests(unittest.TestCase):
         self.assertEqual(len(set(prompts)),3)
         self.assertTrue(all('No posters' in v for v in prompts))
 
+    def test_production_dashboard_browser_script_parses(self):
+        import subprocess,shutil,tempfile
+        from pathlib import Path
+        if not shutil.which('node'):self.skipTest('Node missing')
+        token=activate_actor('Director')
+        try:html=ui.production_studio().body.decode()
+        finally:clear_actor(token)
+        script=html.split('<script>',1)[1].split('</script>',1)[0]
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'production-studio.js'
+            path.write_text(script,encoding='utf8')
+            run=subprocess.run(['node','--check',str(path)],capture_output=True,text=True)
+        self.assertEqual(run.returncode,0,run.stderr)
+
     def test_dashboard_is_production_only(self):
         t=activate_actor('Director')
         try: html=ui.production_studio().body.decode()
