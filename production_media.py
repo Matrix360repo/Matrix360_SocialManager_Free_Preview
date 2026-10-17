@@ -118,29 +118,77 @@ def video_prompt(spec):
       'No typography or logos; brand identity is layered separately in application after render.')
 
 def create_one_video(batch_id,idx,reel):
+    """Full motion graphics encoded from genuinely different source photographs.
+
+    A 404 from an unavailable Sora account is never mistaken for a storage
+    problem. This route uses locally installed FFmpeg plus authenticated TTS.
+    """
     try:
+        existing=media_record(batch_id,idx,'video')
+        if existing and existing.get('status')=='completed':
+            return
         set_record(batch_id,idx,'video','processing')
+        photo_record=media_record(batch_id,idx,'image')
+        if not photo_record or photo_record['status']!='completed':
+            raise RuntimeError('Verified photographic source is not ready')
+        if idx==1:
+            from director_demo import verified_master
+            photo=verified_master()
+        else:
+            photo=download_media(photo_record['object_path'])
         key=os.getenv('OPENAI_API_KEY','').strip()
-        if not key:raise RuntimeError('OPENAI_API_KEY missing for Sora motion rendering')
-        client=OpenAI(api_key=key,timeout=45,max_retries=0)
-        job=client.videos.create(model=os.getenv('MATRIX_VIDEO_MODEL','sora-2'),
-             prompt=video_prompt(reel),size='720x1280',seconds='8')
-        if not getattr(job,'id',None):raise RuntimeError('Video provider did not return job id')
-        set_record(batch_id,idx,'video','processing',provider_job_id=job.id)
+        if not key:
+            raise RuntimeError('OPENAI_API_KEY missing for voiceover')
+        from motion_reels import render_reel,synth_voice,probe_video
+        client=OpenAI(api_key=key,timeout=60,max_retries=1)
+        voice=synth_voice(client,reel)
+        raw=render_reel(photo,idx,reel,voice)
+        if len(raw)<15000 or raw[4:8]!=b'ftyp':
+            raise RuntimeError('FFmpeg returned invalid MP4')
+        path=f'{batch_id}/video/{idx}.mp4'
+        upload_media(path,raw,'video/mp4')
+        # End-to-end storage readback and basic signature verification.
+        remote=download_media(path)
+        if len(remote)!=len(raw) or remote[:32]!=raw[:32]:
+            raise RuntimeError('Private MP4 archival readback mismatch')
+        set_record(batch_id,idx,'video','completed',object_path=path,
+                   provider_job_id='ffmpeg_tts_motion_v1')
     except Exception as exc:
-        try:set_record(batch_id,idx,'video','failed',error=type(exc).__name__+': '+str(exc)[:100])
-        except Exception:pass
+        try:
+            set_record(batch_id,idx,'video','failed',
+                       error=type(exc).__name__+': '+str(exc)[:95])
+        except Exception:
+            pass
 
 def _worker(batch_id,concepts,reels):
     try:
         with ThreadPoolExecutor(max_workers=3) as pool:
-            results=[pool.submit(generate_one_image,batch_id,i,c) for i,c in enumerate(concepts,1)]
-            # Begin actual motion-video jobs separately so they do not wait on image generation.
-            for i,r in enumerate(reels,1):
-                create_one_video(batch_id,i,r)
-            for future in results:future.result()
+            pending=[pool.submit(generate_one_image,batch_id,i,c)
+                     for i,c in enumerate(concepts,1)]
+            for task in pending:task.result()
+        # Single job at a time prevents Render Free memory/CPU exhaustion.
+        for i,reel in enumerate(reels,1):
+            create_one_video(batch_id,i,reel)
     finally:
-        with GUARD:ACTIVE.discard(batch_id)
+        with GUARD:
+            ACTIVE.discard(batch_id)
+
+def render_existing_batch(batch_id):
+    """Repair failed or missing MP4 jobs using already archived real assets."""
+    data=batch_data(batch_id)
+    with GUARD:
+        if batch_id in ACTIVE:
+            return False
+        ACTIVE.add(batch_id)
+    def recover():
+        try:
+            for idx,reel in enumerate(data['reels'],1):
+                create_one_video(batch_id,idx,reel)
+        finally:
+            with GUARD:ACTIVE.discard(batch_id)
+    threading.Thread(target=recover,daemon=True,
+                     name='motion-graphics-'+batch_id[:8]).start()
+    return True
 
 def launch(batch_id,concepts,reels):
     if len(concepts)!=3 or len(reels)!=3:raise ValueError('Three AI post and reel concepts required')
@@ -230,24 +278,29 @@ def refresh_video(batch_id:str,option:int):
     if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
     batch_data(batch_id)
     row=media_record(batch_id,option,'video')
-    if not row:raise HTTPException(404,'Video job not found')
-    if row['status'] in ('completed','failed'):return row
-    jobid=row.get('provider_job_id')
-    if not jobid:raise HTTPException(409,'Video job is initializing')
-    key=os.getenv('OPENAI_API_KEY','')
-    if not key:raise HTTPException(503,'Video provider not configured')
-    try:
-        client=OpenAI(api_key=key,timeout=100,max_retries=0)
-        job=client.videos.retrieve(jobid)
-        if job.status=='completed':
-            blob=client.videos.download_content(jobid)
-            raw=blob.read()
-            if len(raw)<2048 or raw[4:8]!=b'ftyp':raise RuntimeError('Provider returned invalid MP4')
-            path=f'{batch_id}/video/{option}.mp4'
-            upload_media(path,raw,'video/mp4')
-            set_record(batch_id,option,'video','completed',object_path=path,provider_job_id=jobid)
-        elif job.status in ('failed','cancelled','expired'):
-            set_record(batch_id,option,'video','failed',provider_job_id=jobid,error='Video provider reported '+job.status)
-    except Exception as exc:
-        raise HTTPException(502,'Video retrieval failed: '+type(exc).__name__) from None
-    return media_record(batch_id,option,'video')
+    if not row:raise HTTPException(404,'Video job has not started')
+    return row
+
+@router.post('/api/production-media/{batch_id}/reel/{option}/retry')
+def retry_video(batch_id:str,option:int):
+    director_required()
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    data=batch_data(batch_id)
+    row=media_record(batch_id,option,'video')
+    if row and row['status']=='completed':
+        return {'status':'completed','already_verified':True}
+    with GUARD:
+        if batch_id in ACTIVE:raise HTTPException(409,'Rendering already active')
+        ACTIVE.add(batch_id)
+    def retry():
+        try:create_one_video(batch_id,option,data['reels'][option-1])
+        finally:
+            with GUARD:ACTIVE.discard(batch_id)
+    threading.Thread(target=retry,daemon=True,name='retry-motion-'+str(option)).start()
+    return {'status':'queued','provider':'ffmpeg_tts_motion_v1'}
+
+@router.get('/api/production-media/{batch_id}/reel/{option}/download.mp4')
+def save_reel(batch_id:str,option:int):
+    response=downloadable_reel(batch_id,option)
+    response.headers['Content-Disposition']=f'attachment; filename="lakhotia-motion-reel-{option}.mp4"'
+    return response
