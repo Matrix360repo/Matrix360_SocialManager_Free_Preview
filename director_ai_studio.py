@@ -191,11 +191,13 @@ def batch_detail(batch_id:str):
         try:
             row=durable.get_batch(ident)
             decisions=durable.get_reviews(ident) if row else []
+            reel_decisions=durable.reel_reviews(ident) if row else []
         except durable.CampaignStoreError as exc:
             raise HTTPException(503,str(exc)) from None
         if row is None:raise HTTPException(404,'Unknown campaign batch')
         return {'id':ident,'brief':row['brief'],'provider':row['provider'],'model':row['model'],
                 **row['payload'],'reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in decisions},
+                'reel_reviews':{str(x['option_no']):{'decision':x['decision'],'note':x['note']} for x in reel_decisions},
                 'publishing':'disabled','durable':True}
     with connect() as db:
         row=db.execute('SELECT * FROM ai_campaign_batches WHERE id=?',(ident,)).fetchone()
@@ -234,3 +236,24 @@ def decide(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
         db.commit()
     return {'batch_id':batch_id,'option':option,'decision':decision,
             'publication_authorized':False,'reviewer':'Director'}
+
+@router.post('/api/director-demo/ai/batches/{batch_id}/reels/{option}/decision')
+def decide_reel(batch_id:str,option:int,decision:str=Form(...),note:str=Form('')):
+    director_required()
+    if option not in (1,2,3):raise HTTPException(404,'Unknown reel')
+    if decision not in ('approved','rejected','revision_requested'):
+        raise HTTPException(422,'Unknown review action')
+    if len(note)>500 or (decision=='revision_requested' and not note.strip()):
+        raise HTTPException(422,'Revision request requires a note')
+    data=batch_detail(batch_id)
+    if len(data.get('reels',[]))!=3:
+        raise HTTPException(409,'No generated reel found in this batch')
+    if decision=='approved' and not data['checks'][option-1]['passed']:
+        raise HTTPException(409,'Compliance issues prevent approval; request revision first')
+    if not durable.is_configured():
+        raise HTTPException(503,'Private durable approvals must be configured')
+    now=datetime.now(timezone.utc).isoformat()
+    try:durable.save_reel_decision(batch_id,option,decision,note.strip(),now)
+    except durable.CampaignStoreError as exc:raise HTTPException(503,str(exc)) from None
+    return {'option':option,'kind':'reel','decision':decision,'reviewer':'Director',
+            'publication_authorized':False,'persisted':True}
