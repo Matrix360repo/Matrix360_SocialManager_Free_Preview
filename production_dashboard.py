@@ -5,6 +5,7 @@ from security_roles import current_actor
 
 router=APIRouter()
 
+@router.get('/director-demo',response_class=HTMLResponse)
 @router.get('/production-studio',response_class=HTMLResponse)
 def production_studio():
     role='Director' if current_actor()=='Director' else 'Read-only operator'
