@@ -53,3 +53,4 @@ class ProductionMediaTests(unittest.TestCase):
         self.assertNotIn('industrial-foundations',html)
         self.assertNotIn('/api/social-posts/',html)
         self.assertIn('v.controls=true',html)
+        self.assertIn('current.reel_reviews',html)
