@@ -93,6 +93,8 @@ if __name__=='__main__':
             print('MATRIX360_MOTION_RECOVERY batch='+repair+' queued='+str(queued),flush=True)
         except Exception as exc:
             print('MATRIX360_MOTION_RECOVERY result=failed reason='+type(exc).__name__,flush=True)
+    from approval_acceptance import startup as approval_qa
+    approval_qa()
     from startup_generation import kickoff
     kickoff()
     import uvicorn
