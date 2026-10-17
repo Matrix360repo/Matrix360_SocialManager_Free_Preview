@@ -83,6 +83,16 @@ if __name__=='__main__':
     prepare()
     storage_preflight()
     ai_storage_preflight()
+    import uuid
+    repair=os.getenv('MATRIX_MOTION_RECOVER_BATCH','').strip()
+    if repair:
+        try:
+            uuid.UUID(repair)
+            from production_media import render_existing_batch
+            queued=render_existing_batch(repair)
+            print('MATRIX360_MOTION_RECOVERY batch='+repair+' queued='+str(queued),flush=True)
+        except Exception as exc:
+            print('MATRIX360_MOTION_RECOVERY result=failed reason='+type(exc).__name__,flush=True)
     from startup_generation import kickoff
     kickoff()
     import uvicorn

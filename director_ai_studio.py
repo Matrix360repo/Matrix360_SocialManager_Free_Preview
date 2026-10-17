@@ -83,7 +83,13 @@ def real_reel_concepts(cfg,brief,concepts):
        'generic industry footage with distinct visual subjects and camera moves. '
        'No static posters, slideshow, pan/zoom of images or invented Lakhotia '
        'construction, no real site representation, no logos in model footage. '
-       'Each video_prompt 80-300 words and distinct from the other two. '
+       'Each video_prompt 80-300 words. Reel 1 category architecture and '
+       'infrastructure must rely on exact approved gate, never fictional site '
+       'structures; reel 2 focuses human operational decisions and workers; '
+       'reel 3 depicts only generic illustrative utilities, IoT and technology '
+       '(no claim these installations exist at Lakhotia). '
+       'Include three distinct kinetic-text phases and a natural spoken '
+       'narration hook for the matching business theme. '
        'Do not claim project facilities are complete; mark scenes illustrative.'
        )},
        {'role':'user','content':json.dumps({'brief':brief,'related_social_concepts':[
@@ -127,7 +133,8 @@ def create_ai_batch(brief,audience,objective,platform,provider):
        '\nCreate three genuinely DIFFERENT angles and headlines. Use only these claims: '+SAFE_SOURCE+
        '\nDo not imply construction is complete. Do not describe gates, roads, landscaping or buildings except as an unaltered approved illustrative visual.'+
        '\nAvoid new amenities, facilities, services, price, ROI, rankings or invented numerical claims.'+
-       '\nFor each concept creative_guidance MUST describe one DISTINCT photorealistic generic industrial/business scene: photographic subject, camera angle, physical activity, atmosphere and framing. The three scenes must differ in subject and storytelling, driven by this campaign brief rather than fixed stock-image categories. Do not use abstract icons, diagrams, illustration layouts or placeholder shapes.'+
+       '\nSTRICT CATEGORY SPLIT for generated concepts: #1 Architecture & Infrastructure (use existing approved Lakhotia gate artwork; do not generate a new gate or a fictitious master plan); #2 Human Element & Operations (authentic one/two-person workplace or industrial planning scene); #3 Facilities, Utilities & Technology (generic real industrial instruments or utility technology, zero people; label any such scene as illustrative and NOT installed Lakhotia infrastructure). Use separate storytelling, unique camera style and copy in each category.'+
+       '\nAvoid repeated faces, duplicate people, extra arms or fingers, cutout photographic seams, impossible pipe connections and unrealistic logistics scenes.'+
        '\nNever generate, depict or redraw the Lakhotia complex itself. Its official gate is a separate immutable asset and must not be used as a generative reference.')
     # No fallback: failure must be visible, never falsely reported as AI.
     def no_fallback(*args):raise RuntimeError('AI unavailable; no fake generated output')

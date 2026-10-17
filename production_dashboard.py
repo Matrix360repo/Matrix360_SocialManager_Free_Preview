@@ -59,7 +59,7 @@ hr{border:0;border-top:1px solid #e5ebe5;margin:25px 0}
 <label>Preview format<select id="channel"><option>Instagram</option><option>Facebook</option><option>LinkedIn</option><option>X-Twitter</option></select></label>
 <div id="posts" class="output"></div></div>
 <div class="panel"><div class="kicker">LIVE MOTION RENDERING</div><h2>Three AI-generated reels</h2>
-<p class="lead">Reels use a genuine motion-video model. No storyboard-only output or animated still posters. Rendering may take several minutes and requires provider video entitlement.</p>
+<p class="lead">Reels are encoded locally as animated 15-second motion graphics, with kinetic typography, animated graphical layers, original instrumental music and AI-generated voiceover. MP4 playback appears only after independent FFprobe verification.</p>
 <div id="reels" class="output"></div></div></section>
 <section class="panel"><h2>Recent durable campaigns</h2><div id="history" class="notes">Loading saved campaigns...</div>
 <p class="notes">All approval actions are Director-only and audited. AI output is unapproved until reviewed. External social publishing remains disabled.</p></section>
@@ -130,13 +130,19 @@ function displayReels(status){
     (s.error_message?' — '+s.error_message:''),'status'+(s.status==='failed'?' error':'')));
   const body=elt('div',undefined,'card-body');
   body.append(elt('span','REEL 0'+idx,'pill'),elt('h3',reel.headline),elt('p',reel.caption||''));
-  if(s.status==='completed'){const links=elt('div',undefined,'downloads');link(links,'Play / download MP4',reelUrl(idx),true);body.append(links)}
-  else if(s.status==='processing'&&s.provider_job_id){
-    button(body,'Check video render',()=>refreshVideo(idx),'subtle');
+  if(s.status==='completed'){const links=elt('div',undefined,'downloads');link(links,'Play MP4',reelUrl(idx),false);link(links,'Download MP4','/api/production-media/'+enc(current.id)+'/reel/'+idx+'/download.mp4',true);body.append(links)}
+  else if(s.status==='failed'){
+    button(body,'Retry motion render',()=>retryVideo(idx),'subtle');
   }
   reviewActions(body,idx,'Reel',current.checks[i]||{passed:false,issues:['Unscreened']},(current.reel_reviews||{})[idx]?.decision);
   card.append(body);node.append(card)
  })
+}
+async function retryVideo(idx){
+ try{const r=await json('/api/production-media/'+enc(current.id)+'/reel/'+idx+'/retry',{method:'POST'});
+ info('Motion rendering '+r.status+'. Refreshes automatically once the MP4 is verified.');
+ await refresh()
+ }catch(err){info('Cannot restart video render: '+err.message,true)}
 }
 async function refreshVideo(idx){
  try{await json('/api/production-media/'+enc(current.id)+'/reel/'+idx+'/refresh',{method:'POST'});await refresh()}
@@ -148,7 +154,7 @@ async function refresh(){
   const status=await json('/api/production-media/'+enc(current.id)+'/status');
   displayPosts(status);displayReels(status);
   for(const video of status.video||[]){
-   if(video.status==='processing'&&video.provider_job_id){
+   if(video.status==='processing'&&video.provider_job_id&&video.provider_job_id!=='ffmpeg_tts_motion_v1'){
     await refreshVideoQuiet(video.option_no);
    }
   }

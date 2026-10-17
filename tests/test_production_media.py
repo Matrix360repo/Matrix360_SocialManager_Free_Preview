@@ -12,7 +12,7 @@ class ProductionMediaTests(unittest.TestCase):
         concepts=[{'headline':'A unique theme '+str(i),'creative_guidance':'Original cinematic contextual manufacturing decision image with distinct photo brief '+str(i)} for i in (1,2,3)]
         prompts=[p.visual_prompt(c,i) for i,c in enumerate(concepts,1)]
         self.assertEqual(len(set(prompts)),3)
-        self.assertTrue(all('No text' in x for x in prompts))
+        self.assertTrue(all('typography' in x.lower() for x in prompts))
         self.assertTrue(all('never' in x.lower() or 'not' in x.lower() for x in prompts))
 
     def test_real_image_bytes_composed_in_four_platform_sizes(self):
