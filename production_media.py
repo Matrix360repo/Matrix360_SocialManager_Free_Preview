@@ -190,7 +190,8 @@ def create_one_video(batch_id,idx,reel):
         upload_media(path,raw,'video/mp4')
         # End-to-end storage readback and basic signature verification.
         remote=download_media(path)
-        if len(remote)!=len(raw) or remote[:32]!=raw[:32]:
+        import hashlib
+        if hashlib.sha256(remote).digest()!=hashlib.sha256(raw).digest():
             raise RuntimeError('Private MP4 archival readback mismatch')
         set_record(batch_id,idx,'video','completed',object_path=path,
                    provider_job_id='ffmpeg_tts_motion_v1')
