@@ -8,7 +8,7 @@ from security_roles import activate_actor,clear_actor
 
 RUN_TAG='matrix360_p0_indian_sme_client_review_20261017'
 BRIEF=("Create three authentic India-specific B2B creatives and 15-second motion reels "
-"for SME/MSME light manufacturers, local small factories and growing modest "
+"for MSME light manufacturers and growing local "
 "warehousing/logistics units near Howrah. ARCHITECTURE: use ONLY the exact "
 "approved Lakhotia gate, unchanged; do not invent buildings. HUMAN OPERATIONS: "
 "one or two clearly Indian local professionals, natural clothing or workwear, "
