@@ -21,6 +21,21 @@ class ReelTests(unittest.TestCase):
         b=motion.overlay_frame(40,2,15,2,{'headline':'Industrial planning'},240,426)
         self.assertNotEqual(a.tobytes(),b.tobytes())
 
+    def test_provider_mp3_frame_variants_are_decoded_not_byte_guessed(self):
+        if not shutil.which('ffmpeg'):
+            self.skipTest('FFmpeg missing')
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            mp3=Path(folder)/'speech.mp3'
+            result=subprocess.run(['ffmpeg','-loglevel','error','-y','-f','lavfi',
+                 '-i','sine=frequency=440:duration=2.0','-q:a','8',str(mp3)],
+                 capture_output=True,timeout=30)
+            self.assertEqual(result.returncode,0)
+            client=Mock()
+            client.audio.speech.create.return_value.read.return_value=mp3.read_bytes()
+            generated=motion.synth_voice(client,{'headline':'Industrial planning'})
+            self.assertEqual(generated,mp3.read_bytes())
+
     def test_real_audio_video_mp4(self):
         if not shutil.which('ffmpeg'):self.skipTest('FFmpeg missing')
         with tempfile.TemporaryDirectory() as folder:
