@@ -180,7 +180,7 @@ def generate_one_image(batch_id,idx,candidate):
                    '. Change composition and subject to remove these defects.')
             response=client.images.generate(
                 model=os.getenv('MATRIX_IMAGE_MODEL','gpt-image-1-mini'),
-                prompt=prompt,size='1024x1536',quality='medium',n=1)
+                prompt=prompt,size='1024x1536',quality=os.getenv('MATRIX_IMAGE_QUALITY','high'),n=1)
             encoded=response.data[0].b64_json
             if not encoded:raise RuntimeError('Image generator returned no image bytes')
             raw=base64.b64decode(encoded)
