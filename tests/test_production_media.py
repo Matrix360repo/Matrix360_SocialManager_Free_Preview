@@ -58,6 +58,29 @@ class ProductionMediaTests(unittest.TestCase):
             run=subprocess.run(['node','--check',str(path)],capture_output=True,text=True)
         self.assertEqual(run.returncode,0,run.stderr)
 
+
+    def test_indian_sme_only_visual_constraints(self):
+        human=p.visual_prompt({'headline':'Warehouse owners','creative_guidance':'Workers plan storage'},2)
+        utility=p.visual_prompt({'headline':'Equipment','creative_guidance':'Small local meter'},3)
+        self.assertIn('Indian adults',human)
+        self.assertIn('SME',human)
+        self.assertIn('PERSON-FREE',utility)
+
+    def test_private_stream_links_are_short_lived(self):
+        import json
+        from unittest.mock import MagicMock
+        path='00000000-0000-0000-0000-000000000001/video/2.mp4'
+        mock_result={'signedURL':'/object/sign/matrix360-campaign-media/'+path+'?token=sample'}
+        response=MagicMock()
+        response.__enter__.return_value=io.BytesIO(json.dumps(mock_result).encode())
+        with patch.object(p,'auth_config',return_value=('https://example.supabase.co','secret-key')),\
+             patch.object(p,'urlopen',return_value=response) as http:
+            result=p.signed_private_link(path,expires_in=600)
+        self.assertIn('/storage/v1/object/sign/',result['url'])
+        self.assertEqual(result['expires_in'],600)
+        self.assertNotIn('secret-key',result['url'])
+        self.assertEqual(http.call_args.args[0].method,'POST')
+
     def test_dashboard_is_production_only(self):
         t=activate_actor('Director')
         try: html=ui.production_studio().body.decode()
@@ -66,5 +89,7 @@ class ProductionMediaTests(unittest.TestCase):
         self.assertIn('Generate 3 posts + 3 motion reels',html)
         self.assertNotIn('industrial-foundations',html)
         self.assertNotIn('/api/social-posts/',html)
-        self.assertIn('v.controls=true',html)
+        self.assertIn('player.controls=true',html)
+        self.assertIn('reelsRenderKey',html)
+        self.assertIn('stream-link',html)
         self.assertIn('current.reel_reviews',html)
