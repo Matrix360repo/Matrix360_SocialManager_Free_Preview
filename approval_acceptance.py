@@ -58,7 +58,23 @@ def acceptance_test():
         reel_audit=store.api("reel_audit","GET","select=id&batch_id=eq."+ident)
         if len(audit)!=1 or len(reel_audit)!=1:
             raise RuntimeError("Approval audit logs missing")
-        return "director_review_roundtrip_passed"
+        media_batch=os.getenv("MATRIX_QA_MEDIA_BATCH","").strip()
+        if media_batch:
+            import tempfile
+            from pathlib import Path
+            from production_media import downloadable_reel
+            from motion_reels import probe_video
+            for option in (1,2,3):
+                response=downloadable_reel(media_batch,option)
+                if response.media_type!="video/mp4":
+                    raise RuntimeError("Playback route did not return MP4")
+                with tempfile.TemporaryDirectory(prefix="matrix360-video-qa-") as folder:
+                    video=Path(folder)/"production.mp4"
+                    video.write_bytes(response.body)
+                    probed=probe_video(video,min_duration=14)
+                    if "audio" not in probed["streams"]:
+                        raise RuntimeError("Archived MP4 missing sound stream")
+        return "director_review_and_production_media_roundtrip_passed"
     finally:
         # Cascade removes audit and review entries; QA never visible afterward.
         store.api("batches","DELETE","id=eq."+ident+"&client_id=eq.lakhotia",
