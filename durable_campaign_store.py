@@ -13,7 +13,9 @@ class CampaignStoreError(RuntimeError):pass
 TABLES={'batches':'matrix360_lakhotia_ai_batches',
         'reviews':'matrix360_lakhotia_ai_reviews',
         'audit':'matrix360_lakhotia_ai_audit',
-        'media':'matrix360_lakhotia_ai_media'}
+        'media':'matrix360_lakhotia_ai_media',
+        'reel_reviews':'matrix360_lakhotia_reel_reviews',
+        'reel_audit':'matrix360_lakhotia_reel_audit'}
 
 def is_configured():
     return gate_store.settings() is not None
@@ -63,3 +65,15 @@ def save_decision(ident,option,decision,note,now):
         prefer='return=minimal')
     api('reviews','POST','on_conflict=batch_id,option_no',payload=[review],
         prefer='resolution=merge-duplicates,return=minimal')
+
+def reel_reviews(ident):
+    return api('reel_reviews','GET','select=option_no,decision,note&batch_id=eq.'+quote(ident,safe=''))
+
+def save_reel_decision(ident,option,decision,note,now):
+    api('reel_audit','POST',payload=[{'batch_id':ident,'option_no':option,
+       'decision':decision,'note':note,'reviewer':'Director','created_utc':now}],
+       prefer='return=minimal')
+    api('reel_reviews','POST','on_conflict=batch_id,option_no',
+       payload=[{'batch_id':ident,'option_no':option,'decision':decision,
+       'note':note,'reviewer':'Director','reviewed_utc':now}],
+       prefer='resolution=merge-duplicates,return=minimal')
