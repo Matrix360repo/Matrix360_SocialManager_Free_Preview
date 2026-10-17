@@ -235,4 +235,4 @@ app.include_router(production_media_router)
 
 # Explicitly requested one-shot autonomous live production generation.
 from startup_generation import kickoff as production_generation_kickoff
-app.add_event_handler('startup',production_generation_kickoff)
+# startup kickoff executed from cloud_start.py before Uvicorn initialization
