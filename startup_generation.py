@@ -19,6 +19,14 @@ BRIEF=("Create a commercially publishable, premium industrial B2B campaign for "
        "For reels use actual cinematic subject movement, operations and camera "
        "motion, not slideshow effects. "+RUN_TAG)
 
+def archive_video(batch_id):
+    try:
+        from production_video_import import import_reel
+        state=import_reel(batch_id)
+        print('MATRIX360_LIVE_REEL_IMPORT result='+state,flush=True)
+    except Exception as exc:
+        print('MATRIX360_LIVE_REEL_IMPORT result=failed reason='+type(exc).__name__,flush=True)
+
 def run():
     actor=activate_actor('Director')
     try:
@@ -30,11 +38,14 @@ def run():
         batches=store.list_batches()
         matched=[x for x in batches if RUN_TAG in str(x.get('brief',''))]
         if matched:
-            print('MATRIX360_LIVE_GENERATION result=already_registered batch='+str(matched[0]['id']),flush=True)
+            batch_id=str(matched[0]['id'])
+            print('MATRIX360_LIVE_GENERATION result=already_registered batch='+batch_id,flush=True)
+            archive_video(batch_id)
             return
         print('MATRIX360_LIVE_GENERATION result=starting_real_provider_requests',flush=True)
         batch=create_ai_batch(BRIEF,'Manufacturing businesses','Consultation enquiries','Instagram','openai')
         print('MATRIX360_LIVE_GENERATION result=three_posts_three_reels_created batch='+str(batch['id']),flush=True)
+        archive_video(str(batch['id']))
     except Exception as exc:
         detail=getattr(exc,'detail',None)
         # Avoid printing provider-provided errors, headers or secret material.
