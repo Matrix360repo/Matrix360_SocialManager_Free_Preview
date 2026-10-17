@@ -145,7 +145,7 @@ def overlay_frame(frame,t,duration,option,reel,width,height):
     d.rounded_rectangle((int(width*.065),int(height*.955),
                          int(width*.93),int(height*.962)),radius=3,fill=(255,255,255,65))
     d.rounded_rectangle((int(width*.065),int(height*.955),
-                         int(width*.065+(width*.865)*((frame+1)/(duration*24))),
+                         int(width*.065+(width*.865)*min(1.,(t+.06)/duration)),
                          int(height*.962)),radius=3,fill=(*ORANGE,255))
     if option!=1:
         d.text((int(width*.065),int(height*.122)),
@@ -211,7 +211,7 @@ def probe_video(path,min_duration=10):
         raise MotionRenderError("Generated reel lacks validated duration, video or audio stream")
     return {"duration":duration,"streams":sorted(stream_types)}
 
-def render_reel(photo_bytes,option,reel,voice_mp3,duration=15,width=720,height=1280,fps=24):
+def render_reel(photo_bytes,option,reel,voice_mp3,duration=15,width=540,height=960,fps=18):
     if not shutil.which("ffmpeg"):
         raise MotionRenderError("FFmpeg is not installed")
     if not 1<=option<=3 or width<200 or height<300 or fps<5:
@@ -228,6 +228,7 @@ def render_reel(photo_bytes,option,reel,voice_mp3,duration=15,width=720,height=1
                 root/("overlay_%04d.png"%frame),compress_level=1)
         dest=root/"reel.mp4"
         cmd=["ffmpeg","-hide_banner","-nostdin","-loglevel","error","-y",
+             "-threads","1","-filter_threads","1","-filter_complex_threads","1",
              "-loop","1","-framerate",str(fps),"-i",str(root/"base.png"),
              "-framerate",str(fps),"-i",str(root/"overlay_%04d.png"),
              "-i",str(root/"music.wav"),"-i",str(root/"voice.mp3"),
@@ -235,7 +236,7 @@ def render_reel(photo_bytes,option,reel,voice_mp3,duration=15,width=720,height=1
              "[0:v][1:v]overlay=shortest=1:format=auto,format=yuv420p[v];"
              "[2:a]volume=0.28[m];[m][3:a]amix=inputs=2:duration=first:dropout_transition=1[a]",
              "-map","[v]","-map","[a]","-t",str(duration),
-             "-r",str(fps),"-c:v","libx264","-preset","veryfast",
+             "-r",str(fps),"-c:v","libx264","-threads","1","-preset","ultrafast",
              "-crf","24","-pix_fmt","yuv420p","-c:a","aac","-b:a","128k",
              "-movflags","+faststart",str(dest)]
         try:

@@ -16,6 +16,13 @@ class ReelTests(unittest.TestCase):
         self.assertNotEqual(human,utility)
         self.assertIn('PERSON-FREE',utility)
 
+    def test_resource_limits(self):
+        import inspect
+        limits=inspect.signature(motion.render_reel).parameters
+        self.assertLessEqual(limits['width'].default,540)
+        self.assertLessEqual(limits['height'].default,960)
+        self.assertLessEqual(limits['fps'].default,18)
+
     def test_frame_animation(self):
         a=motion.overlay_frame(1,.1,15,2,{'headline':'Industrial planning'},240,426)
         b=motion.overlay_frame(40,2,15,2,{'headline':'Industrial planning'},240,426)
