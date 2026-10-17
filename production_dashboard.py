@@ -82,7 +82,9 @@ async function review(option,kind,decision){
  const note=decision==='revision_requested'?prompt('Required revision (mandatory):'):(decision==='rejected'?prompt('Rejection reason (optional):',''):'');
  if(note===null)return;
  try{const body=new URLSearchParams({decision,note:note||''});
- let result=await json('/api/director-demo/ai/batches/'+enc(current.id)+'/'+option+'/decision',{method:'POST',body});
+ let endpoint=kind==='Reel'?'/api/director-demo/ai/batches/'+enc(current.id)+'/reels/'+option+'/decision':
+ '/api/director-demo/ai/batches/'+enc(current.id)+'/'+option+'/decision';
+ let result=await json(endpoint,{method:'POST',body});
  info(kind+' '+option+': '+result.decision+'. Stored securely; publishing disabled.');
  await showBatch(current.id)
  }catch(err){info('Review not saved: '+err.message,true)}
@@ -130,7 +132,7 @@ function displayReels(status){
   else if(s.status==='processing'&&s.provider_job_id){
     button(body,'Check video render',()=>refreshVideo(idx),'subtle');
   }
-  reviewActions(body,idx,'Reel',current.checks[i]||{passed:false,issues:['Unscreened']},(current.reviews||{})[idx]?.decision);
+  reviewActions(body,idx,'Reel',current.checks[i]||{passed:false,issues:['Unscreened']},(current.reel_reviews||{})[idx]?.decision);
   card.append(body);node.append(card)
  })
 }
