@@ -6,18 +6,22 @@ without exposing secrets, and uses the same production media APIs as UI users.
 import os,threading
 from security_roles import activate_actor,clear_actor
 
-RUN_TAG='matrix360_oct17_director_authorized_live_generation_v1'
-BRIEF=("Create a commercially publishable, premium industrial B2B campaign for "
-       "Lakhotia Industrial Complex, Ranihati-Amta Road, Howrah. "
-       "Create three clearly differentiated editorial photographic approaches "
-       "for manufacturers, warehousing firms and logistics operators deciding "
-       "where to expand in West Bengal. Emphasize practical industrial site "
-       "selection, approx. 4 km proximity to NH-16 and the offer of free expert "
-       "consultation, without claiming finished infrastructure. Use realistic "
-       "illustrative industry photography of different human and industrial "
-       "activities, without inventing or redrawing the Lakhotia gate or site. "
-       "For reels use actual cinematic subject movement, operations and camera "
-       "motion, not slideshow effects. "+RUN_TAG)
+RUN_TAG='matrix360_issue29_distinct_client_quality_live_v2'
+BRIEF=("Develop a polished, factual B2B campaign for Lakhotia Industrial Complex, "
+"Ranihati-Amta Road, Howrah. THREE nonoverlapping social post and motion-graphics "
+"reel categories: first ARCHITECTURE & INFRASTRUCTURE using ONLY the exact "
+"Director-approved gate reference without invented site structures or plans; "
+"second HUMAN OPERATIONS with one or two naturally posed industrial professionals "
+"in an illustrative generic industrial workplace (no duplicate faces or limbs); "
+"third FACILITIES UTILITIES & TECHNOLOGY showing people-free generic "
+"industrial monitoring instruments and controls, explicitly illustrative and NOT "
+"installed Lakhotia utilities. Realistic images and distinct copy for each. "
+"Highlight manufacturing, warehousing, logistics, industrial land planning and "
+"free expert consultation with correct Lakhotia phone and website. "
+"Do not claim ready infrastructure, operational power/water, installed "
+"substations, regulatory certification, guaranteed savings or completed projects. "
+"Create three distinctive 15-second kinetic typography motion reels with "
+"dynamic graphics, music and voiceover. "+RUN_TAG)
 
 def archive_video(batch_id):
     try:
