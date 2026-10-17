@@ -377,6 +377,8 @@ def regenerate_photo(batch_id:str,option:int):
     if (batch.get('reviews',{}).get(str(option),{})
             .get('decision')=='approved'):
         raise HTTPException(409,'Approved creative cannot be changed; request revision first')
+    if batch.get('reel_reviews',{}).get(str(option),{}).get('decision')=='approved':
+        raise HTTPException(409,'Approved reel cannot be invalidated without a revision decision')
     with GUARD:
         if batch_id in ACTIVE:
             raise HTTPException(409,'A render is already running for this campaign')
