@@ -232,3 +232,7 @@ from production_dashboard import router as production_dashboard_router
 from production_media import router as production_media_router
 app.include_router(production_dashboard_router)
 app.include_router(production_media_router)
+
+# Explicitly requested one-shot autonomous live production generation.
+from startup_generation import kickoff as production_generation_kickoff
+app.add_event_handler('startup',production_generation_kickoff)
