@@ -120,7 +120,8 @@ class AiStudioTests(unittest.TestCase):
                 'checks':[{'passed':True}]*3}}
         with patch.object(ai.durable,'is_configured',return_value=True),patch.object(
             ai.durable,'get_batch',return_value=record),patch.object(
-            ai.durable,'get_reviews',return_value=[{'option_no':1,'decision':'approved','note':''}]):
+            ai.durable,'get_reviews',return_value=[{'option_no':1,'decision':'approved','note':''}]),patch.object(
+            ai.durable,'reel_reviews',return_value=[]):
             loaded=ai.batch_detail(record['id'])
         self.assertTrue(loaded['durable'])
         self.assertEqual(loaded['reviews']['1']['decision'],'approved')
