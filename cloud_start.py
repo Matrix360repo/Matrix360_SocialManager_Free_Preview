@@ -83,6 +83,8 @@ if __name__=='__main__':
     prepare()
     storage_preflight()
     ai_storage_preflight()
+    from startup_generation import kickoff
+    kickoff()
     import uvicorn
     port=int(os.environ.get('PORT','10000'))
     uvicorn.run('app:app',host='0.0.0.0',port=port,proxy_headers=True)
