@@ -52,4 +52,4 @@ class ProductionMediaTests(unittest.TestCase):
         self.assertIn('Generate 3 posts + 3 motion reels',html)
         self.assertNotIn('industrial-foundations',html)
         self.assertNotIn('/api/social-posts/',html)
-        self.assertIn('video.controls=true',html)
+        self.assertIn('v.controls=true',html)
